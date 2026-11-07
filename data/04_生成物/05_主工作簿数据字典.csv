@@ -1,0 +1,11 @@
+﻿sheet,definition,role,authority,notes,constraint
+Exe,展示页，汇总当前周计划,presentation,derived,不参与 seed 计算,
+信息,运动员画像、目标、恢复、日程,input,input,gen_seed.py 读取 D10–D16 等固定坐标,openpyxl 保存会清空公式缓存，禁止
+总览,周容量/日容量仪表盘,presentation,derived,与处方重复；77 vs 87 组不一致,
+周期,16 周块/阶段/RPE/组数矩阵,input,input,G 列 RPE 被回填为 baseRpe,
+追踪,16 周 e1RM/体重/吨位曲线,demo/derived,demo,预填演示数据；gen_seed 不读取,
+W1–W16,每周 4 个训练日的处方,input,input,固定行段 A=9–20/B=21–32/C=33–44/D=45–56,不要插入行/列
+动作库,240 个唯一动作 / 32 个分组,catalog,input,无稳定 exercise_id；19 个跨分类重名,
+映射,分类 → 动作组 → 数量,catalog,input,Unmapped 不在映射；主项计数不一致,
+协议,24 个做组模式,catalog,input,旧名 SS/SL/T1.Def/T1.S2/T1.S3 仍在用,
+00_META（未写入）,元数据与冻结说明,metadata,metadata,因公式缓存问题未写入工作簿，见 00_索引/RPL_ExDark_v0.03_ProMax_META.md,

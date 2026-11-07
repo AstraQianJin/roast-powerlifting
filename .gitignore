@@ -1,0 +1,73 @@
+# ---------- Android / Gradle ----------
+build/
+mobile/.gradle/
+mobile/app/build/
+mobile/local.properties
+.cxx/
+*.apk.tmp
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---------- Excel / 临时文件 ----------
+*.xlsx~
+~$*.xlsx
+*.tmp
+*.log
+
+# ---------- 系统 ----------
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ---------- 本地产物 / 运行痕迹 ----------
+.screenshots/
+.workbuddy/
+mobile/docs/shots/*.tmp
+# shot.js 的整批输出目录（每次重生成，入仓的是 docs/shots 那份归档）
+mobile/shots/
+
+# ---------- 本地工具痕迹 / 实体留档（不入仓） ----------
+.trae-html-share-packages/
+.zcode/
+archive/
+# 反向故障注入的原文台账（各 _sabotage_*.py revert 后即删，不该进仓）
+mobile/tools/_sabotage_*.json
+# _sabotage_t1.py F6 挪书暂存位：canon 出处在库内，暂存必须放在库外，
+# 否则 S27 的「未跟踪顶层条目须被 ignore」会把探针自己也算成一条腿（实测）。
+.sabotage-stash/
+
+# Qoder 本地工具痕迹（不入仓）
+.qoder-credits/
+
+# ---------- 参考资料库（v0.31 起整体出仓，S27 盯这条边界）----------
+# 96 本书 / 482MB 是**人与 Agent 的参考读物**，不是种子链的输入：gen_seed 只读 data/01_工作簿 的三份表。
+# seed 的 programLib.canon 仍写着 `02_参考资料/...` —— 那是**书在自己库内的相对路径**，
+# 库搬到顶层之后它照样成立（基准目录从 data/ 换成这一行指向的位置），所以 canon 一个字符都不用改。
+# 想把某本书拉回仓里（加 ! 重纳入）之前先问一句：App 运行时读它吗？历史已经为这个问题剔过一次了。
+ref/
+
+# 旧分类时代的同书副本（与 02_参考资料 里的同书字节不同），本机留档、不入仓
+data/05_归档/01_重复文件/
+
+# ---------- Lean 盘点（2026-11-07）----------
+# 本机临时工作目录（设备截图、审计快照等），不是任何生成链的输入
+tmp/
+# App 导出的计划文件，本机产物，不进仓
+mobile/plans/
+# ---------- GitHub 发布（2026-11-07）----------
+# 成品 APK 只走 GitHub Release，不入仓库；release/ 内保留说明文档
+release/*.apk
+*.apk
+# 签名材料一律不入仓
+*.jks
+*.keystore
+keystore.properties
+# 宿主工具的本地工作区
+.trae/
+# Python 测试缓存，任何套件跑完都可能生成
+.pytest_cache/

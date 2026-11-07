@@ -1,0 +1,45 @@
+{
+  "exchange_ver": "RPL-Exchange-v1",
+  "title": "RPL 交换载体契约：JSON 计划信封 + JSONL 训练日志",
+  "notes": {
+    "authority": "本文件是 JSON 交换载体的唯一事实源。xlsx/CSV 自 v0.11 起降级为「视图/导出」，不再承载任何独占协议。",
+    "plan_carrier": "计划导出为单个自描述 JSON 文件（信封）。信封头部固定键序，便于 AI/人快速识别格式与版本；plan 载荷即 RPL-Plan-v1 六表字典，其列名/枚举/约束仍以 schema/RPL-Plan-v1.json 为准，本文件不复制第二份。",
+    "log_carrier": "训练日志导出为 JSONL（每行一条记录），只导不入：日志属于历史事实，导入侧不提供回灌通道。行记录键 = log_jsonl.record_keys_frozen 的 26 列（列序冻结，v0.13 起以本文件为权威）；首行固定 META 头记录。",
+    "version_policy": "载体契约升版必须：新增 schema 文件（不改旧文件）→ 在 accepted 列表登记 → 迁移说明写入 mobile/docs/ → build_html/gate 同步。导入侧对未知 schemaVersion 整份拒收，绝不静默降级。",
+    "single_source": "改任何键名/键序/文件名模板/MIME，只改本文件；template.html 与 Python 侧一律从注入的 EXCHANGE_SCHEMA / 本 JSON 读取，不许硬编码第二份。"
+  },
+  "plan_envelope": {
+    "format": "RPL-Plan",
+    "schema_version_field": "schemaVersion",
+    "current": "RPL-Plan-v1",
+    "accepted": ["RPL-Plan-v1"],
+    "key_order": ["format", "schemaVersion", "exportedAt", "app", "plan"],
+    "required_keys": ["format", "schemaVersion", "exportedAt", "app", "plan"],
+    "app_keys": ["name", "version"],
+    "app_name": "RPL ExDark Pro",
+    "plan_payload_contract": "schema/RPL-Plan-v1.json",
+    "file_name": "RPL_ExDark_v{VER}_plan.json",
+    "mime": "application/json",
+    "exportedAt_note": "ISO-8601 本地时间串（YYYY-MM-DDTHH:mm:ss）；仅用于人读溯源，不参与任何判定，导入侧忽略。"
+  },
+  "log_jsonl": {
+    "format": "RPL-Log",
+    "current": "RPL-Log-v1",
+    "accepted": ["RPL-Log-v1"],
+    "header_record": {
+      "type_key": "record_type",
+      "type_value": "META",
+      "required_keys": ["record_type", "schema_ver", "app_name", "app_version", "exportedAt"],
+      "schema_ver_value_field": "csv_protocol",
+      "csv_protocol_accepted": ["v8.1"]
+    },
+    "record_keys_source": "本文件 record_keys_frozen 是 26 列列名与列序的唯一权威；template.html 的 CSV_COLS、成品里的注入值、Python 侧校验全部向它对齐。",
+    "record_keys_frozen": ["schema_ver", "record_type", "week", "day", "row_idx", "date", "mode", "category", "movement", "load_kg", "rx_text", "target_rpe", "last_reps", "actual_rpe", "e1rm_kg", "done", "notes", "readiness", "bw_kg", "sleep_h", "rhr_bpm", "hrv_ms", "fuel_strategy", "exec_status", "duration_min", "aux_week_mask"],
+    "record_keys_note": "这 26 列自 v0.07 冻结（AGENTS 红线 4：协议不可破）。改名或换序属于协议变更，必须新增 schema 文件并把日志版本升为 RPL-Log-v2，不许就地改这份清单。v0.13 起 desktop 归档，对账的另一端从 server.py 的 CSV_HEADER 换成这里的 record_keys_frozen（gate S7）。",
+    "append_policy": "只追加：同一日志文件可多次导出的记录直接续行；读取方按行独立解析，行间无依赖。",
+    "import_policy": "禁止：App 不提供 RPL-Log 导入通道；日志是历史事实的单向视图。",
+    "file_name": "RPL_ExDark_v{VER}_log.jsonl",
+    "mime": "application/x-ndjson",
+    "impl_since": "v0.12（v0.11 仅登记契约，不实现）"
+  }
+}

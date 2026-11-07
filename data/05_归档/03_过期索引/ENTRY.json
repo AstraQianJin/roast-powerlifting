@@ -1,0 +1,118 @@
+{
+  "_note": "machine-readable directory contract for data/. Any Agent touching data/ MUST read this first.",
+  "data_version": "v2",
+  "schema_version": "v1",
+  "generated_on": "2026-11-03",
+  "source_of_truth": {
+    "authority_workbook": "data/01_工作簿/RPL_ExDark_v0.15_ProMax.xlsx",
+    "reference_libraries": [
+      "data/01_工作簿/RPL_Program_Library_v0.15.xlsx",
+      "data/01_工作簿/RPL_Set_Strategy_v0.15.xlsx"
+    ],
+    "refs_directory": "data/02_参考资料/"
+  },
+  "gen_seed_consumes": {
+    "_python_file": "mobile/tools/gen_seed.py",
+    "_method": "openpyxl data_only=True + 硬编码 range 按列号读",
+    "_critical_rules": [
+      "禁止重排下列范围的列",
+      "禁止在下列范围中间插入新列",
+      "修改下列范围必须同步改 gen_seed.py 的 range() 调用"
+    ],
+    "authority_workbook": {
+      "file": "data/01_工作簿/RPL_ExDark_v0.15_ProMax.xlsx",
+      "_risk": "公式缓存！openpyxl 保存会清空 data_only 值；用 Excel/WPS 保存",
+      "sheets": {
+        "信息": {"cells": ["D10-D16", "E10-E13", "H14-H15", "H6"], "consumer": "gen_seed.py:255-281"},
+        "周期": {"cells": ["B6-B21", "D6-D21", "G6-G21"], "consumer": "gen_seed.py:284-316"},
+        "W1-W16": {
+          "cells": ["A/B/C/D/E/F/G/H/I per row", "AUX 区见 wkbook.py"],
+          "consumer": "gen_seed.py:330-388",
+          "header_in_row": "per wkbook.DAY_BLOCKS"
+        },
+        "协议": {"cells": ["B6-B28", "C6-C28", "D6-D28", "E6-E28", "F6-F28"], "consumer": "gen_seed.py:392-408"}
+      }
+    },
+    "program_library": {
+      "file": "data/01_工作簿/RPL_Program_Library_v0.15.xlsx",
+      "sheets": {
+        "计划总库": {
+          "header_row": 1,
+          "data_start_row": 2,
+          "gen_seed_cols": "A-P (1-16)",
+          "consumer": "gen_seed.py:170-181 range(1,17)",
+          "derived_cols": "Q-AB (17-28) — gen_seed 忽略，可自由编辑"
+        },
+        "字段规范与口径": {
+          "header_row": 1,
+          "data_start_row": 2,
+          "gen_seed_cols": "A-D (1-4)",
+          "consumer": "gen_seed.py:184-193"
+        }
+      }
+    },
+    "strategy_library": {
+      "file": "data/01_工作簿/RPL_Set_Strategy_v0.15.xlsx",
+      "sheets": {
+        "组策略总表": {
+          "header_row": 1,
+          "data_start_row": 2,
+          "gen_seed_cols": "A-I (1-9)",
+          "consumer": "gen_seed.py:206-216 range(1,10)",
+          "derived_cols": "J-L (10-12) — gen_seed 忽略"
+        },
+        "动作适用性矩阵": {
+          "header_row": 2,
+          "data_start_row": 3,
+          "gen_seed_cols": "A-G (1-7)",
+          "consumer": "gen_seed.py:220-228 range(1,8)",
+          "derived_cols": "H-I (8-9) — gen_seed 忽略"
+        },
+        "三大项辅助动作库": {
+          "header_row": 2,
+          "data_start_row": 3,
+          "gen_seed_cols": "A-M (1-13)",
+          "consumer": "gen_seed.py:232-242 range(1,14)",
+          "derived_cols": "N-Q (14-17) — gen_seed 忽略"
+        }
+      }
+    }
+  },
+  "reference_only_directories": [
+    {"path": "data/02_参考资料/", "rule": "只增不改；重复文件归档", "consumers": ["人读", "未来 RAG"]},
+    {"path": "data/05_归档/", "rule": "只增不删", "consumers": ["回滚", "追溯"]}
+  ],
+  "generated_outputs": [
+    {"path": "data/04_生成物/", "rule": "脚本生成，禁止手改", "generator": "03_规范/tools/validate_data.py + 内部脚本"},
+    {"path": "data/04_生成物/checksums.sha256", "rule": "逐文件 sha256", "generator": "同上"},
+    {"path": "data/04_生成物/refs_manifest.json", "rule": "机器可读资源清单", "generator": "同上"}
+  ],
+  "spec_files": [
+    "data/03_规范/RPL_Data_v1.contract.json",
+    "mobile/tools/schema/RPL-Plan-v1.json"
+  ],
+  "validation": {
+    "primary": "python data/03_规范/tools/validate_data.py",
+    "regenerate_seed": "cd mobile && python tools/gen_seed.py",
+    "app_gate": "cd mobile && python tools/gate.py --static"
+  },
+  "cross_sheet_relations": [
+    {"from": "RPL_Program_Library.计划总库.规范链接 (col 15)", "to": "02_参考资料/03_计划与方法/", "note": "已按家族回填 163 条；6 个家族无对应资产"},
+    {"from": "RPL_Set_Strategy.组策略总表.mode_hint (col 12)", "to": "主工作簿.协议 (24 个 mode)", "note": "已按语义高置信回填 9/27，其余留空防伪造"},
+    {"from": "RPL_Set_Strategy.三大项辅助动作库.exercise_id (col 16)", "to": "主工作簿.动作库 (291 个动作)", "note": "格式 CATEGORY|MOVEMENT_EN；已回填 111/209，卡点描述行不关联"}
+  ],
+  "known_backlogs": [
+    {"item": "规范链接未覆盖 6 个家族（Brian Alsruhe / Calgary Barbell / RP / Smolov / StrongFirst / 本地自研）", "file": "RPL_Program_Library.计划总库", "priority": "P2", "note": "02_参考资料 无对应资产，属真实缺口"},
+    {"item": "mode_hint 仅回填 9/27", "file": "RPL_Set_Strategy.组策略总表", "priority": "P2", "note": "其余策略与现有 24 mode 无明确语义对应，留空优于编造"},
+    {"item": "exercise_id 75 条未匹配", "file": "RPL_Set_Strategy.三大项辅助动作库", "priority": "P2", "note": "名称在主工作簿动作库中不存在（如 Glute Bridge / Plank / Ab Wheel）"},
+    {"item": "duration_min/max 52 行、freq 17 行为空", "file": "RPL_Program_Library.计划总库", "priority": "P3", "note": "条目本身为持续/框架型，无固定周数，留空是正确语义"},
+    {"item": "gen_seed 改为按列名读", "file": "mobile/tools/gen_seed.py", "priority": "P2", "note": "需要改 mobile/tools，不在 data/ 内"}
+  ],
+  "redlines": [
+    "禁止 openpyxl 保存主工作簿（公式缓存）",
+    "禁止重排 gen_seed 消费范围内的列",
+    "禁止手改 data/04_生成物/",
+    "禁止删除任何 .xlsx 文件",
+    "禁止付费/版权资源全文入库"
+  ]
+}

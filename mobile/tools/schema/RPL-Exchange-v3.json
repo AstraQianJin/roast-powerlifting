@@ -1,0 +1,67 @@
+{
+  "exchange_ver": "RPL-Exchange-v3",
+  "title": "RPL 交换载体契约 v3：JSON 计划信封（RPL-Plan-v3）+ JSONL 训练日志 + CSV v2 协议登记",
+  "notes": {
+    "authority": "本文件是 JSON 交换载体的唯一事实源（v0.44 起现行版；RPL-Exchange-v1/v2.json 冻结在 git HEAD 只做历史留档，产品与门禁都不读它们）。xlsx/CSV 自 v0.11 起降级为「视图/导出」，不再承载任何独占协议。",
+    "plan_carrier": "计划导出为单个自描述 JSON 文件（信封）。信封头部固定键序，便于 AI/人快速识别格式与版本；plan 载荷即 RPL-Plan-v3 八表字典，其列名/枚举/约束仍以 schema/RPL-Plan-v3.json 为准，本文件不复制第二份。",
+    "log_carrier": "训练日志导出为 JSONL（每行一条记录），只导不入：日志属于历史事实，导入侧不提供回灌通道。行记录键 = log_jsonl.record_keys_frozen 的 26 列（列序冻结，v0.13 起以本文件为权威）；首行固定 META 头记录。",
+    "csv_carrier": "统一扁平 CSV 与 JSONL 行记录共用同一份 26 列协议（record_keys_frozen）。v0.44 起 CSV 侧 schema_ver 升 '2'（F25/C6）：列序与列名不变，record_type=ARMOR 换成 GPP，GPP 专有字段放 notes JSON（键序固定，导出两次逐字节一致）；旧 schema_ver='1'/'v8.1' 与旧 ARMOR 行仍可导入（映射为 GPP，未知动作落自定义项，不静默跳过）。新导出写 '2'；旧 App 读不了新文件属于预期，写入发版说明。",
+    "version_policy": "载体契约升版必须：新增 schema 文件（不改旧文件）→ 在 accepted 列表登记 → 迁移说明写入 mobile/docs/ → build_html/gate 同步。导入侧对未知 schemaVersion 整份拒收，绝不静默降级。",
+    "single_source": "改任何键名/键序/文件名模板/MIME，只改本文件；template.html 与 Python 侧一律从注入的 EXCHANGE_SCHEMA / 本 JSON 读取，不许硬编码第二份。"
+  },
+  "plan_envelope": {
+    "format": "RPL-Plan",
+    "schema_version_field": "schemaVersion",
+    "current": "RPL-Plan-v3",
+    "accepted": ["RPL-Plan-v1", "RPL-Plan-v2", "RPL-Plan-v3"],
+    "key_order": ["format", "schemaVersion", "exportedAt", "app", "plan"],
+    "required_keys": ["format", "schemaVersion", "exportedAt", "app", "plan"],
+    "app_keys": ["name", "version"],
+    "app_name": "RPL ExDark Pro",
+    "plan_payload_contract": "schema/RPL-Plan-v3.json",
+    "file_name": "RPL_ExDark_v{VER}_plan.json",
+    "mime": "application/json",
+    "exportedAt_note": "ISO-8601 本地时间串（YYYY-MM-DDTHH:mm:ss）；仅用于人读溯源，不参与任何判定，导入侧忽略。",
+    "legacy_note": "v1/v2 信封照常收：装载侧按 RPL-Plan-v3.json 的 legacy_compat.entries 分派（v1 六表、v2 七表含 Armor+Gear），旧 Armor 行按 sheets.GPP.legacy_armor 迁进 GPP state，不需要注入旧契约全文。导出侧自 v0.44 起只产 v3 信封（八表：六表 + GPP + Gear + Level）。文件名模板不变——载荷版本自描述，换名反而让旧脚本找不着文件。"
+  },
+  "log_jsonl": {
+    "format": "RPL-Log",
+    "current": "RPL-Log-v1",
+    "accepted": ["RPL-Log-v1"],
+    "header_record": {
+      "type_key": "record_type",
+      "type_value": "META",
+      "required_keys": ["record_type", "schema_ver", "app_name", "app_version", "exportedAt"],
+      "schema_ver_value_field": "csv_protocol",
+      "csv_protocol_accepted": ["v8.1", "2"],
+      "csv_protocol_current": "2"
+    },
+    "record_keys_source": "本文件 record_keys_frozen 是 26 列列名与列序的唯一权威；template.html 的 CSV_COLS、成品里的注入值、Python 侧校验全部向它对齐。",
+    "record_keys_frozen": ["schema_ver", "record_type", "week", "day", "row_idx", "date", "mode", "category", "movement", "load_kg", "rx_text", "target_rpe", "last_reps", "actual_rpe", "e1rm_kg", "done", "notes", "readiness", "bw_kg", "sleep_h", "rhr_bpm", "hrv_ms", "fuel_strategy", "exec_status", "duration_min", "aux_week_mask"],
+    "record_keys_note": "这 26 列自 v0.07 冻结（AGENTS 红线 4：协议不可破）。改名或换序属于协议变更，必须新增 schema 文件并把日志版本升为 RPL-Log-v2，不许就地改这份清单。CSV v2（F25）只动 schema_ver 取值与 record_type 值域（ARMOR→GPP），列不动。",
+    "gpp_record": {
+      "title": "record_type=GPP 的列映射（C6，唯一出处；模板 unifiedRecords/导入侧共读）",
+      "mapping": {
+        "schema_ver": "2",
+        "mode": "metric_type",
+        "category": "domain",
+        "movement": "item",
+        "load_kg": "loadKg（可空）",
+        "rx_text": "目标处方文本（旧 target/rx）",
+        "target_rpe": "targetRpe（可空）",
+        "last_reps": "实际值数值（actualValue；非 reps 语义时也走这列，单位在 notes.unit）",
+        "actual_rpe": "actualRpe（可空）",
+        "done": "该周任一天做过 = 1，否则 0",
+        "aux_week_mask": "done_mask 7 位（Mon→Sun）",
+        "notes": "GPP 专有字段 JSON，键序固定：{metric_type, sets, reps, duration_sec, distance_m, rounds, unit, note}"
+      },
+      "notes_json_keys": ["metric_type", "sets", "reps", "duration_sec", "distance_m", "rounds", "unit", "note"],
+      "intensity_note": "旧 ARMOR 行的 intensity 文本走 rx_text 拼接：导出 rx_text = rx + ' @ ' + intensity（intensity 非空时）；导入按最后一个 ' @ ' 拆回 rx 与 intensity。custom 标记不落 CSV（导入按「movement 不在菜单」现判，落自定义项）。"
+    },
+    "append_policy": "只追加：同一日志文件可多次导出的记录直接续行；读取方按行独立解析，行间无依赖。",
+    "import_policy": "JSONL 禁止导入（日志是历史事实的单向视图）；CSV 导入通道照旧（importUnifiedCsv），接受 schema_ver 1/v8.1/2。",
+    "file_name": "RPL_ExDark_v{VER}_log.jsonl",
+    "mime": "application/x-ndjson",
+    "impl_since": "v0.12（v0.11 仅登记契约，不实现）；CSV v2 自 v0.44"
+  }
+}

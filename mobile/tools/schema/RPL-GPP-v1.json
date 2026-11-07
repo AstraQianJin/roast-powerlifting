@@ -1,0 +1,172 @@
+{
+  "gpp_ver": "RPL-GPP-v1",
+  "title": {
+    "zh": "一般身体准备（GPP）目录",
+    "en": "General Physical Preparation (GPP) catalog"
+  },
+  "not_exchange": "本契约是 GPP 内置目录 + 恢复影响映射的唯一权威源，build_html.py 注入为 const GPP_SCHEMA。前端不许写第二份动作清单（gate 静态守卫盯手抄）。用户自定义项存 state.gpp（custom:true），随 GPP 表 / CSV v2 往返，不进本契约。",
+  "notes": [
+    "GPP = 可选做，不是必做计划（F5）：每周复用同一套菜单，做就记录，记录后进入恢复影响；不显示强制完成率，不变成第二个训练日。",
+    "域枚举与计划 C3 完全一致（搬运/雪橇/跳跃/核心/有氧/灵活性/自定义）。旧 PARASYMPATHETIC 域并入 mobility，靠 parasympathetic:true 展示标签区分恢复型条目，不新增第 7 内置域（D16②，避免与计划文档分叉）。",
+    "重定价说明（C8 不得静默改数 / D14）：breathwork rec_bonus=0.016、morning_light=0.012 略高于旧 mobility 行统一 0.012，属有意重定价——副交感激活（慢呼吸 6bpm 提升 HRV）证据最强（R2 §4.2 / W8），零疲劳成本。其余 mobility 恢复项沿用旧 1.2% 口径。",
+    "恢复乘数最终式见 recovery.formula，REC_base 段的权威在 RPL-JTS-v1.json#recMult；本契约只拥有 B_gpp / F_gpp 两个 GPP 通道与地标扣减系数，两处互引不各写一份数字（D14）。",
+    "rec_bonus / fatigue / debt_lower / debt_upper 单位均为「每完成项-天」（item-day）。数值理由见 R2 §4.2/§4.3。"
+  ],
+  "domain_enum": ["carry", "sled", "jump", "core", "aerobic", "mobility", "custom"],
+  "domain_names": {
+    "carry": { "zh": "搬运", "en": "Carry" },
+    "sled": { "zh": "雪橇", "en": "Sled" },
+    "jump": { "zh": "跳跃/爆发", "en": "Jump / Power" },
+    "core": { "zh": "核心/薄弱链", "en": "Core / Weak-point" },
+    "aerobic": { "zh": "有氧", "en": "Aerobic" },
+    "mobility": { "zh": "灵活性/副交感", "en": "Mobility / Parasympathetic" },
+    "custom": { "zh": "自定义", "en": "Custom" }
+  },
+  "metric_type_enum": ["time", "reps", "distance", "carry", "rounds", "other"],
+  "target_unit_enum": ["sec", "min", "reps", "m", "steps", "kg", "rounds"],
+  "cns_enum": ["low", "med", "high"],
+  "impact_enum": ["low", "med", "high"],
+  "advisory_next_day_enum": ["none", "take_min", "cap_rpe7"],
+  "progression_hints": {
+    "carry": "先加距离/组数，再加负重；负重每 2 周 +5–10%，RPE ≤7 封顶。",
+    "sled": "先加距离/组数，再加负重；负重每 2 周 +5–10%，RPE ≤7 封顶。",
+    "jump": "只在准备度 ≥75%（R ≥75）且非 Peak 周做；量恒定低（≤20 次触地/课），疲劳即停。",
+    "aerobic": "Zone 2 时长 20→45 min 渐进；HIIT 每周 ≤1 次。",
+    "core": "无渐进压力，按天做即可；核心项 RPE ≤8。",
+    "mobility": "无渐进压力，按天做即可。"
+  },
+  "items": [
+    { "id": "farmer_carry", "domain": "carry", "name_en": "Farmer's Carry", "name_zh": "农夫行走", "metric_type": "carry", "target_text": "3×30 m（双手合计 ≈0.75×BW）", "load_kg_hint": null, "target_rpe": 7, "cns": "med", "impact": "low", "rec_bonus": 0, "fatigue": 0.005, "debt_lower": 0.3, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "dl": 1.0, "sq": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W1", "W4"] },
+    { "id": "suitcase_carry", "domain": "carry", "name_en": "Suitcase Carry", "name_zh": "单侧手提行走", "metric_type": "carry", "target_text": "3×30 m/侧（≈0.35×BW）", "load_kg_hint": null, "target_rpe": 7, "cns": "low", "impact": "low", "rec_bonus": 0.004, "fatigue": 0, "debt_lower": 0.2, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "dl": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W7"] },
+    { "id": "overhead_carry", "domain": "carry", "name_en": "Overhead Carry", "name_zh": "过头持物行走", "metric_type": "carry", "target_text": "3×20 m（≈0.3×BW）", "load_kg_hint": null, "target_rpe": 7, "cns": "med", "impact": "low", "rec_bonus": 0, "fatigue": 0.005, "debt_lower": 0, "debt_upper": 0.3, "debt_free_days": 0, "sru_bonus": { "bp": 1.0 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W1", "W5"] },
+    { "id": "zercher_carry", "domain": "carry", "name_en": "Zercher / Front-Load Carry", "name_zh": "泽奇抱重行走", "metric_type": "carry", "target_text": "3×25 m（≈0.6×BW）", "load_kg_hint": null, "target_rpe": 7, "cns": "med", "impact": "low", "rec_bonus": 0, "fatigue": 0.005, "debt_lower": 0.3, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "sq": 1.0 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W1", "W5"] },
+    { "id": "yoke_walk", "domain": "carry", "name_en": "Yoke Walk", "name_zh": "轭架行走", "metric_type": "carry", "target_text": "3×20 m（≈1.0×BW）", "load_kg_hint": null, "target_rpe": 7, "cns": "high", "impact": "med", "rec_bonus": 0, "fatigue": 0.015, "debt_lower": 0.6, "debt_upper": 0.3, "debt_free_days": 0, "sru_bonus": { "sq": 0.5 }, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["W9", "W1"] },
+
+    { "id": "sled_push", "domain": "sled", "name_en": "Sled Push (moderate)", "name_zh": "雪橇推（中负荷）", "metric_type": "distance", "target_text": "6×20 m", "load_kg_hint": null, "target_rpe": 7, "cns": "med", "impact": "low", "rec_bonus": 0, "fatigue": 0.005, "debt_lower": 0.4, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "sq": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R1", "W2", "W3"] },
+    { "id": "sled_push_heavy", "domain": "sled", "name_en": "Heavy Sled Push", "name_zh": "重雪橇推", "metric_type": "distance", "target_text": "5×15 m（推重 ≈1.5–2×BW）", "load_kg_hint": null, "target_rpe": 8, "cns": "high", "impact": "low", "rec_bonus": 0, "fatigue": 0.015, "debt_lower": 0.8, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "sq": 1.0, "dl": 0.5 }, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["W2", "W3"] },
+    { "id": "sled_drag_back", "domain": "sled", "name_en": "Backward Sled Drag", "name_zh": "后拉雪橇（倒走）", "metric_type": "distance", "target_text": "8×25 m（轻负荷）", "load_kg_hint": null, "target_rpe": 6, "cns": "low", "impact": "low", "rec_bonus": 0.008, "fatigue": 0, "debt_lower": 0.2, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R1"] },
+    { "id": "sled_pull_rope", "domain": "sled", "name_en": "Rope Sled Pull", "name_zh": "绳索手拉手拉雪橇", "metric_type": "time", "target_text": "5 min", "load_kg_hint": null, "target_rpe": 7, "cns": "low", "impact": "med", "rec_bonus": 0, "fatigue": 0.005, "debt_lower": 0.2, "debt_upper": 0.3, "debt_free_days": 0, "sru_bonus": { "dl": 0.5, "bp": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R1", "W2"] },
+    { "id": "prowler_intervals", "domain": "sled", "name_en": "Prowler / Sled Intervals", "name_zh": "雪橇间歇（高代谢）", "metric_type": "rounds", "target_text": "10×20 m，间歇 60 s", "load_kg_hint": null, "target_rpe": 8, "cns": "high", "impact": "low", "rec_bonus": 0, "fatigue": 0.020, "debt_lower": 1.0, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["R1", "W2"] },
+
+    { "id": "box_jump", "domain": "jump", "name_en": "Box Jump", "name_zh": "跳箱", "metric_type": "reps", "target_text": "5×3（高质量低量）", "load_kg_hint": null, "target_rpe": 7, "cns": "high", "impact": "med", "rec_bonus": 0, "fatigue": 0.015, "debt_lower": 0.5, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "sq": 0.5 }, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["R3"] },
+    { "id": "broad_jump", "domain": "jump", "name_en": "Standing Broad Jump", "name_zh": "立定跳远", "metric_type": "reps", "target_text": "5×2", "load_kg_hint": null, "target_rpe": 7, "cns": "high", "impact": "high", "rec_bonus": 0, "fatigue": 0.020, "debt_lower": 0.6, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "sq": 0.5 }, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["R3"] },
+    { "id": "depth_drop", "domain": "jump", "name_en": "Depth Drop / Snapdown", "name_zh": "落下缓冲", "metric_type": "reps", "target_text": "4×3（箱高 ≤45 cm）", "load_kg_hint": null, "target_rpe": 7, "cns": "high", "impact": "high", "rec_bonus": 0, "fatigue": 0.020, "debt_lower": 0.6, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["R3"] },
+    { "id": "hurdle_hop", "domain": "jump", "name_en": "Hurdle Hops / Pogo", "name_zh": "连续小栏架跳", "metric_type": "reps", "target_text": "4×6", "load_kg_hint": null, "target_rpe": 7, "cns": "med", "impact": "med", "rec_bonus": 0, "fatigue": 0.010, "debt_lower": 0.4, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["R3"] },
+    { "id": "jump_rope", "domain": "jump", "name_en": "Jump Rope", "name_zh": "跳绳", "metric_type": "time", "target_text": "10 min", "load_kg_hint": null, "target_rpe": 6, "cns": "low", "impact": "med", "rec_bonus": 0.004, "fatigue": 0, "debt_lower": 0.2, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R1"] },
+    { "id": "short_sprint", "domain": "jump", "name_en": "Short Sprints (≤30 m)", "name_zh": "短距冲刺", "metric_type": "distance", "target_text": "6×30 m，全休", "load_kg_hint": null, "target_rpe": 9, "cns": "high", "impact": "high", "rec_bonus": 0, "fatigue": 0.020, "debt_lower": 0.6, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["R3", "W2", "W3"] },
+
+    { "id": "plank_side", "domain": "core", "name_en": "Plank + Side Plank", "name_zh": "平板/侧平板", "metric_type": "time", "target_text": "3×45 s", "load_kg_hint": null, "target_rpe": 7, "cns": "low", "impact": "low", "rec_bonus": 0, "fatigue": 0, "debt_lower": 0, "debt_upper": 0.2, "debt_free_days": 0, "sru_bonus": { "sq": 0.5, "upperback": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W5", "W6"] },
+    { "id": "ab_wheel", "domain": "core", "name_en": "Ab Wheel Rollout", "name_zh": "健腹轮", "metric_type": "reps", "target_text": "3×8", "load_kg_hint": null, "target_rpe": 8, "cns": "med", "impact": "low", "rec_bonus": 0, "fatigue": 0.005, "debt_lower": 0, "debt_upper": 0.2, "debt_free_days": 0, "sru_bonus": { "sq": 1.0, "upperback": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W5"] },
+    { "id": "hanging_leg_raise", "domain": "core", "name_en": "Hanging Leg Raise", "name_zh": "悬垂举腿", "metric_type": "reps", "target_text": "3×10", "load_kg_hint": null, "target_rpe": 7, "cns": "low", "impact": "low", "rec_bonus": 0, "fatigue": 0, "debt_lower": 0, "debt_upper": 0.2, "debt_free_days": 0, "sru_bonus": { "sq": 0.5, "dl": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W5"] },
+    { "id": "reverse_hyper", "domain": "core", "name_en": "Reverse Hyper", "name_zh": "反向背屈伸", "metric_type": "reps", "target_text": "3×15（轻）", "load_kg_hint": null, "target_rpe": 6, "cns": "low", "impact": "low", "rec_bonus": 0.008, "fatigue": 0, "debt_lower": 0.2, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "dl": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R1"] },
+    { "id": "back_extension", "domain": "core", "name_en": "Back Extension / GHD", "name_zh": "背屈伸", "metric_type": "reps", "target_text": "3×12（自重）", "load_kg_hint": null, "target_rpe": 7, "cns": "low", "impact": "low", "rec_bonus": 0, "fatigue": 0, "debt_lower": 0.2, "debt_upper": 0.2, "debt_free_days": 0, "sru_bonus": { "dl": 0.5, "upperback": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W5"] },
+    { "id": "deadbug_birddog", "domain": "core", "name_en": "Dead Bug + Bird Dog", "name_zh": "死虫+鸟狗（McGill 系）", "metric_type": "time", "target_text": "2×60 s/项", "load_kg_hint": null, "target_rpe": 6, "cns": "low", "impact": "low", "rec_bonus": 0.004, "fatigue": 0, "debt_lower": 0, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": { "sq": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["W6"] },
+
+    { "id": "zone2_walk", "domain": "aerobic", "name_en": "Zone 2 Incline Walk", "name_zh": "二区坡度走", "metric_type": "time", "target_text": "30 min（HR≈125 / RPE 5.5）", "load_kg_hint": null, "target_rpe": 5.5, "cns": "low", "impact": "low", "rec_bonus": 0.004, "fatigue": 0, "debt_lower": 0.6, "debt_upper": 0.15, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R1", "R4", "AUX0"] },
+    { "id": "zone2_cycle", "domain": "aerobic", "name_en": "Zone 2 Cycling", "name_zh": "二区骑行", "metric_type": "time", "target_text": "30 min", "load_kg_hint": null, "target_rpe": 5.5, "cns": "low", "impact": "low", "rec_bonus": 0.004, "fatigue": 0, "debt_lower": 0.4, "debt_upper": 0.1, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R1", "R4"] },
+    { "id": "swim", "domain": "aerobic", "name_en": "Freestyle Swim", "name_zh": "自由泳", "metric_type": "time", "target_text": "20 min", "load_kg_hint": null, "target_rpe": 6, "cns": "low", "impact": "low", "rec_bonus": 0.006, "fatigue": 0, "debt_lower": 0.3, "debt_upper": 0.1, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R4"] },
+    { "id": "row_steady", "domain": "aerobic", "name_en": "Rowing Erg (steady)", "name_zh": "划船机稳态", "metric_type": "time", "target_text": "20 min", "load_kg_hint": null, "target_rpe": 6, "cns": "low", "impact": "med", "rec_bonus": 0, "fatigue": 0, "debt_lower": 0.4, "debt_upper": 0.2, "debt_free_days": 0, "sru_bonus": { "upperback": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R4"] },
+    { "id": "neat_steps", "domain": "aerobic", "name_en": "NEAT · Daily Steps", "name_zh": "日常步数", "metric_type": "distance", "target_text": "10000 steps", "load_kg_hint": null, "target_rpe": 3.5, "cns": "low", "impact": "low", "rec_bonus": 0.002, "fatigue": 0, "debt_lower": 0.15, "debt_upper": 0, "debt_free_days": 5, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["AUX2"] },
+    { "id": "hiit_bike", "domain": "aerobic", "name_en": "Bike/Row HIIT Sprints", "name_zh": "单车/划船冲刺间歇", "metric_type": "time", "target_text": "12 min（HR≈155+）", "load_kg_hint": null, "target_rpe": 7.5, "cns": "high", "impact": "low", "rec_bonus": 0, "fatigue": 0.015, "debt_lower": 1.1, "debt_upper": 0.3, "debt_free_days": 0, "sru_bonus": null, "peak_ok": false, "parasympathetic": false, "advisory_next_day": "take_min", "ref": ["AUX1", "R4"] },
+
+    { "id": "squat_hold_opener", "domain": "mobility", "name_en": "Hip/Shoulder Opener · Deep Squat Hold", "name_zh": "开髋开肩·深蹲保持", "metric_type": "time", "target_text": "3×40 s", "load_kg_hint": null, "target_rpe": 3.5, "cns": "low", "impact": "low", "rec_bonus": 0.012, "fatigue": 0, "debt_lower": 0, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["AUX3", "R1"] },
+    { "id": "foam_roll", "domain": "mobility", "name_en": "Foam Roll · SMR · Thoracic Rotation", "name_zh": "泡沫轴·胸椎活动度", "metric_type": "time", "target_text": "15 min", "load_kg_hint": null, "target_rpe": 2.5, "cns": "low", "impact": "low", "rec_bonus": 0.012, "fatigue": 0, "debt_lower": 0, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["AUX4", "R1"] },
+    { "id": "couch_stretch", "domain": "mobility", "name_en": "Couch / Hip-Flexor Stretch", "name_zh": "沙发拉伸·髂腰肌", "metric_type": "time", "target_text": "2×60 s/侧", "load_kg_hint": null, "target_rpe": 3, "cns": "low", "impact": "low", "rec_bonus": 0.006, "fatigue": 0, "debt_lower": 0, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R1"] },
+    { "id": "band_prehab", "domain": "mobility", "name_en": "Band Pull-Apart · Glute-Med Activation", "name_zh": "弹力带肩袖/臀中肌激活", "metric_type": "reps", "target_text": "3×15", "load_kg_hint": null, "target_rpe": 6, "cns": "low", "impact": "low", "rec_bonus": 0.006, "fatigue": 0, "debt_lower": 0, "debt_upper": 0.1, "debt_free_days": 0, "sru_bonus": { "bp": 0.5 }, "peak_ok": true, "parasympathetic": false, "advisory_next_day": "none", "ref": ["R3"] },
+    { "id": "breathwork", "domain": "mobility", "name_en": "Breathwork (6 bpm) · NSDR · Meditation", "name_zh": "呼吸训练·NSDR·冥想", "metric_type": "time", "target_text": "10 min", "load_kg_hint": null, "target_rpe": 1.5, "cns": "low", "impact": "low", "rec_bonus": 0.016, "fatigue": 0, "debt_lower": 0, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": true, "advisory_next_day": "none", "ref": ["AUX5", "W8"] },
+    { "id": "morning_light", "domain": "mobility", "name_en": "Morning Sunlight · Easy Walk Outside", "name_zh": "晨间日照·户外轻松走", "metric_type": "time", "target_text": "15 min", "load_kg_hint": null, "target_rpe": 1.5, "cns": "low", "impact": "low", "rec_bonus": 0.012, "fatigue": 0, "debt_lower": 0, "debt_upper": 0, "debt_free_days": 0, "sru_bonus": null, "peak_ok": true, "parasympathetic": true, "advisory_next_day": "none", "ref": ["AUX6", "R9"] }
+  ],
+  "weekly_menu": [
+    { "row": 0, "domain": "aerobic", "item_ids": ["zone2_walk"], "alt_item_ids": [], "day_hint": "周三、周六", "rationale": "休息日填二区，跨模态干扰已计入 debt" },
+    { "row": 1, "domain": "sled", "item_ids": ["sled_push"], "alt_item_ids": ["suitcase_carry"], "day_hint": "周三或周六", "rationale": "无离心、低 DOMS，可贴近重日；无雪橇→单侧手提行走" },
+    { "row": 2, "domain": "core", "item_ids": ["ab_wheel", "reverse_hyper"], "alt_item_ids": [], "day_hint": "周一/二/四/五 训练课后", "rationale": "同一行两选一轮换；薄弱链 SRU 加成随主项日走" },
+    { "row": 3, "domain": "carry", "item_ids": ["farmer_carry"], "alt_item_ids": [], "day_hint": "周五（硬拉日课后）或周六", "rationale": "握力/躯干加成计入 dl" },
+    { "row": 4, "domain": "jump", "item_ids": ["box_jump"], "alt_item_ids": ["broad_jump"], "day_hint": "仅周二（速度/爆发倾向日），Accum/Intens 期", "rationale": "高 CNS，远离重蹲拉日与 Peak 期" },
+    { "row": 5, "domain": "mobility", "item_ids": ["squat_hold_opener", "foam_roll"], "alt_item_ids": [], "day_hint": "每天可做", "rationale": "rec_bonus 主力" },
+    { "row": 6, "domain": "mobility", "item_ids": ["breathwork", "morning_light"], "alt_item_ids": [], "day_hint": "每天可做", "rationale": "rec_bonus 最高档，睡眠/压力差时置顶" },
+    { "row": 7, "domain": "aerobic", "item_ids": ["neat_steps"], "alt_item_ids": [], "day_hint": "每天", "rationale": "步数是底盘，>5 天/周才开始计干扰债" }
+  ],
+  "weekly_menu_note": "菜单每周不变（F5），变的是 done_mask 与实际记录值；用户可把任一行换成自定义条目（F27，存 state 随 GPP 表往返）。peak_ok:false 的条目在 Peak/Deload 周自动进回避名单（沿用现有处方 UI 阶段门控）。高 CNS 条目（行 4）与重日错开 ≥48h。",
+  "recovery": {
+    "formula": "REC = clamp(REC_base + B_gpp - F_gpp, 0.55, 1.25); recMult = REC",
+    "rec_base_source": "RPL-JTS-v1.json#recMult.formula （REC_base = 0.75 + 0.50*(R/100)，R 为 JTS 六维准备度分）——本契约不复制该式，只拥有 B_gpp / F_gpp 两通道",
+    "b_gpp": { "expr": "min(cap, Σ_当周项天 rec_bonus[item])", "cap": 0.08, "unit": "每完成项-天累加" },
+    "f_gpp": { "expr": "min(cap, Σ_当周项天 fatigue[item])", "cap": 0.06, "unit": "每完成项-天累加" },
+    "clamp": [0.55, 1.25],
+    "landmark_debt": {
+      "expr": "D_lower = Σ 项天 debt_lower[item]（neat_steps 仅计超过 debt_free_days 的天）; D_upper = Σ 项天 debt_upper[item]",
+      "coefficients": { "mv": -0.3, "mev": -0.5, "mav": -0.8, "mrv": -1.0 },
+      "note": "MV/MEV/MAV/MRV 扣减系数沿用现状（继承 cardioDebt，扩到全域），下限护栏不变。旧行 0/1/2 的 0.6/1.1/0.15(>5天) 原样迁到 zone2_walk/hiit_bike/neat_steps，历史周对账数字不变。"
+    },
+    "sru_bonus": {
+      "expr": "薄弱链 SRU 加成按条目 sru_bonus（继承 weekPlannedSru，旧行级 1.5 改为按条目）",
+      "migration_bound": "旧行 7/8/9 → 新条目的迁移保证：同一打卡模式下 SRU 变化 ≤±0.5/项天（迁移验收判据）"
+    },
+    "advisory_next_day": {
+      "expr": "peak_ok:false 且当日完成 → 次日训练卡提示（展示层，不进乘数，不自动改组数——保持仅展示与推荐红线）",
+      "enum_source": "advisory_next_day_enum"
+    }
+  },
+  "legacy_map": {
+    "note": "旧→新映射（R2 §5），迁移路径对齐 v0.44 迁移闸门 migrateStateV8（D15）。未知动作落自定义项（custom:true）保留原始行，不静默跳过（F25）。",
+    "seed_aux_rows": [
+      { "old_row": 0, "old_item": "Aerobic LISS (Zone 2)", "new_ids": ["zone2_walk"], "new_domain": "aerobic", "how": "直接对应；target/intensity 原样带入" },
+      { "old_row": 1, "old_item": "Interval HIIT", "new_ids": ["hiit_bike"], "new_domain": "aerobic", "how": "直接对应（HR 155 处方不变）" },
+      { "old_row": 2, "old_item": "NEAT · Daily Steps", "new_ids": ["neat_steps"], "new_domain": "aerobic", "how": "直接对应；8-12k → 默认 10000" },
+      { "old_row": 3, "old_item": "Hip/Shoulder Opener · Deep Squat Hold", "new_ids": ["squat_hold_opener"], "new_domain": "mobility", "how": "直接对应" },
+      { "old_row": 4, "old_item": "Foam Roll · Joint Mobility · Thoracic Rotation", "new_ids": ["foam_roll"], "new_domain": "mobility", "how": "直接对应" },
+      { "old_row": 5, "old_item": "Breathwork (6 bpm) · Meditation · NSDR", "new_ids": ["breathwork"], "new_domain": "mobility", "how": "直接对应；域由 PARASYMPATHETIC 并档" },
+      { "old_row": 6, "old_item": "Morning Sunlight · Reading · Cooking", "new_ids": ["morning_light"], "new_domain": "mobility", "how": "直接对应；阅读/烹饪并入 note" },
+      { "old_row": 7, "old_item": "Ab Shredder · Ab Wheel · Plank", "new_ids": ["ab_wheel"], "aux_ids": ["plank_side"], "new_domain": "core", "how": "一行拆两条目；菜单行 2 只放 ab_wheel，plank_side 进目录可选" },
+      { "old_row": 8, "old_item": "Wall Handstand · Pike Push-up", "new_ids": [], "new_domain": "custom", "how": "无内置精确对应 → 落自定义项保留原名（D16①，F25 未知动作不静默丢）" },
+      { "old_row": 9, "old_item": "Gripper · Wrist Curl · Push-up · Biceps Curl", "new_ids": [], "new_domain": "custom", "how": "无内置精确对应 → 落自定义项保留原名；握力 SRU 加成改挂 farmer_carry（D16①）" }
+    ],
+    "armor_catalog": [
+      { "old_id": "breath", "new_ids": ["breathwork"] },
+      { "old_id": "swim", "new_ids": ["swim"] },
+      { "old_id": "walk", "new_ids": ["zone2_walk"] },
+      { "old_id": "cycle", "new_ids": ["zone2_cycle"] },
+      { "old_id": "mobility", "new_ids": ["foam_roll", "squat_hold_opener"], "how": "处方行拆两条" },
+      { "old_id": "jumps", "new_ids": ["box_jump"], "alt_ids": ["broad_jump"] },
+      { "old_id": "sprints", "new_ids": ["short_sprint"] },
+      { "old_id": "run", "new_ids": [], "how": "落自定义（长跑与 GPP 短时有氧定位冲突，AMPK 干扰最重；不进内置目录）" },
+      { "old_id": "basketball", "new_ids": [], "how": "落自定义（不可计量、冲击不可控）" },
+      { "old_id": "prehab", "new_ids": ["band_prehab"] },
+      { "old_id": "sleep", "new_ids": [], "how": "不进 GPP 目录——睡眠继续走 JTS sleep 维度与遥测 sleep_h；旧目录 sleep 条目在处方 UI 改为「去填 JTS 睡眠分」引导" }
+    ],
+    "data_migration_path": [
+      "state.aux（10 行定义）→ GPP 菜单 8 行 + 自定义区；行号变化记入迁移报告（v0.44 migrateStateV8 已建 aux→gpp 骨架，v0.45 对齐本目录）。",
+      "state.weeks[w].auxDays[r][d] → done_mask 7 位串；旧行 0–6 按 seed_aux_rows 一对一搬；行 7–9 掩码归并到拆分后主条目，辅条目掩码置 0（不造历史数据）。",
+      "CSV record_type=ARMOR（movement 匹配旧 item 名）→ record_type=GPP，notes JSON 补 metric_type；movement 不在新目录 → 建自定义项，原始行保留（不静默跳过）。"
+    ]
+  },
+  "custom_examples": [
+    { "id": "run", "name_en": "Long Run", "name_zh": "长跑", "note": "回避名单常客：与 GPP 短时有氧定位冲突，AMPK 跨模态干扰最重。落自定义保留回避提示。" },
+    { "id": "basketball", "name_en": "Basketball", "name_zh": "篮球", "note": "回避名单常客：不可计量、关节冲击不可控。落自定义保留回避提示。" }
+  ],
+  "sources": {
+    "note": "R# = ref/ 库内（相对 ref/，canon 同口径，可 ls 验存在性，gate S27 口径）；W# = 库外文献（真实可查，只给著录项不给页码）；AUX# = 旧工作簿 AUX 区行号（迁移溯源，非文献）。",
+    "ref": [
+      { "code": "R1", "path": "02_参考资料/02_研究与综述/Westside_Conjugate_Method_EN.pdf", "used_for": "GPP 概念本体、雪橇推/后拉、反向背屈伸、跳绳作为力量举 GPP 的经典出处（Louie Simmons 体系）" },
+      { "code": "R2", "path": "02_参考资料/02_研究与综述/Westside_Conjugate_Method_Users_Guide_EN.pdf", "used_for": "重雪橇与代谢条件课的安排" },
+      { "code": "R3", "path": "02_参考资料/03_计划与方法/01_方法论与手册/JTS_Powerlifting_Program_Design_Manual_EN.pdf", "used_for": "爆发/跳跃类辅助动作与阶段安排、Peak 期回避高 CNS 活动" },
+      { "code": "R4", "path": "02_参考资料/02_研究与综述/JTS_Foundations_of_Strength_and_Conditioning_EN.pdf", "used_for": "准备度-疲劳框架、有氧与恢复课定位" },
+      { "code": "R5", "path": "02_参考资料/02_研究与综述/Israetel_Scientific_Principles_of_Strength_Training_ZH.pdf", "used_for": "并发训练干涉效应（AMPK）、MEV/MRV 地标与恢复逻辑" },
+      { "code": "R6", "path": "02_参考资料/02_研究与综述/RTS_Reactive_Training_System_EN.pdf", "used_for": "疲劳-准备度自评与自动调节口径" },
+      { "code": "R7", "path": "02_参考资料/02_研究与综述/2025_Applied_Sport_Science_of_Powerlifting_SportsMed_EN.html", "used_for": "力量举运动员并发有氧/条件训练的当代综述口径" },
+      { "code": "R8", "path": "02_参考资料/02_研究与综述/2020_Tapering_and_Peaking_Maximal_Strength_SportsMedOpen_EN.pdf", "used_for": "Peak 期削减非专项高疲劳活动的依据" },
+      { "code": "R9", "path": "02_参考资料/02_研究与综述/2022_Acute_Sleep_Loss_Physical_Performance_SportsMed_EN.pdf", "used_for": "睡眠/昼夜节律对表现的影响，晨间日照条目的间接依据" }
+    ],
+    "external": [
+      { "code": "W1", "citation": "Winwood PW, Keogh JW, Harris NK. The biomechanics of the farmer's walk during maximal intensity treadmill walking. J Strength Cond Res. 2014", "used_for": "农夫行走的下肢/躯干负荷与步态机制" },
+      { "code": "W2", "citation": "Alcaraz PE, Carlos-Vivas J, Oponjuru BO, Martinez-Rodriguez A. The effectiveness of resisted sled training for sprint performance: a systematic review and meta-analysis. Sports Med. 2018", "used_for": "雪橇训练有效性（负荷-速度、无离心低 DOMS 特性）" },
+      { "code": "W3", "citation": "Cahill MJ, Oliver JL, Cronin JB, et al. Influence of resisted sled-push training on the sprint force-velocity profile. 2019", "used_for": "重雪橇推的力-速度画像" },
+      { "code": "W4", "citation": "Knapik JJ, Steelman RA, Hoedebecke SS, et al. A systematic review of the effects of physical training on load carriage performance. J Strength Cond Res. 2012;26(2):585-597", "used_for": "负重行走类训练的系统综述" },
+      { "code": "W5", "citation": "National Strength and Conditioning Association. Essentials of Strength Training and Conditioning (CSCS 教材)，载重行走/过头行走章节", "used_for": "carry 类动作的教练学出处" },
+      { "code": "W6", "citation": "McGill SM. Low Back Disorders / Ultimate Back Fitness and Performance（书）", "used_for": "死虫/鸟狗等脊柱卫生动作、核心抗侧屈" },
+      { "code": "W7", "citation": "Boyle M. Functional Training for Sports（书）", "used_for": "单侧提箱行走的抗侧屈核心训练" },
+      { "code": "W8", "citation": "Laborde S, et al. 慢呼吸（≈6 bpm）对 HRV/自主神经调节的系列研究（Front Psychol / Front Hum Neurosci，2017–2022 多篇）", "used_for": "breathwork 最高档 rec_bonus 依据" },
+      { "code": "W9", "citation": "NSCA-CSCS 认证指南中译本 第16章（大力士式训练，含农夫行走/轭架）", "used_for": "yoke/farmer 的中文教练学出处" }
+    ]
+  }
+}

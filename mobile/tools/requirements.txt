@@ -1,0 +1,6 @@
+# mobile/tools 离线脚本依赖（不是 APK 运行时依赖：APK 是零第三方依赖的纯 Java WebView）
+#
+#   pip install -r tools/requirements.txt
+
+openpyxl>=3.1,<4    # gen_seed.py / rxlib.py：读 xlsx、抽动作库
+Pillow>=10,<13      # gen_icon.py：生成 mipmap 启动图标

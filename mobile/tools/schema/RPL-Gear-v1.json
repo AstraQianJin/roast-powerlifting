@@ -1,0 +1,180 @@
+{
+  "gear_ver": "RPL-Gear-v1",
+  "title": "RPL 器械词表：六类 kind / 场地与库存形状 / equip→kind 推断 / 取整步长与步进按钮一般式",
+  "not_exchange": "本文件是词表与校验形状的单源，不是交换载体。RPL-Exchange-v1 的 accepted 只认 RPL-Plan-v1，这里列出的任何枚举都不得被登记进交换信封头部。",
+  "notes": {
+    "authority": "器械 kind、场地 kind、装备 kind、杆重/赛扣/挂片位/插片档位、步长公式与步进按钮形状，唯一出处是本文件。template.html 从注入的 GEAR_SCHEMA 派生常量，Python/gate 从本文件读判据；任何一处再抄一份名单就是待修缺陷（gate S37）。",
+    "single_source": "加一类器械、改一个 posts 枚举、调一条步长公式，只改本文件 + 重跑 build_html.py。",
+    "version_policy": "词表升版走新文件（RPL-Gear-v2.json），不改这一份；已发货存档里写下的 kind 字符串永远按本文件的定义解释。",
+    "equip_map_scope": "equip_map 只服务「第一次打开时不空白」的推断，185 种 equip 自由文本不做清洗、不写回数据源；推断结果可被用户逐动作覆盖，覆盖后 e.gearSource='local'。"
+  },
+  "kinds": [
+    { "id": "barbell",  "zh": "杠铃", "en": "BARBELL",  "input": "total",  "input_label_zh": "目标载荷", "input_label_en": "TARGET",  "uses_bar": true,  "uses_collar": true,  "uses_plates": true },
+    { "id": "dumbbell", "zh": "哑铃", "en": "DUMBBELL", "input": "side",   "input_label_zh": "单边重量", "input_label_en": "PER HAND", "uses_bar": false, "uses_collar": false, "uses_plates": false },
+    { "id": "plate",    "zh": "挂片", "en": "LOADED",   "input": "total",  "input_label_zh": "目标载荷", "input_label_en": "TARGET",   "uses_bar": false, "uses_collar": false, "uses_plates": true },
+    { "id": "stack",    "zh": "插片", "en": "STACK",    "input": "total",  "input_label_zh": "目标载荷", "input_label_en": "TARGET",   "uses_bar": false, "uses_collar": false, "uses_plates": false },
+    { "id": "bw",       "zh": "自重", "en": "BODYWGT",  "input": "signed_external", "input_label_zh": "外载", "input_label_en": "EXTERNAL", "uses_bar": false, "uses_collar": false, "uses_plates": false },
+    { "id": "special",  "zh": "特殊", "en": "SPECIAL",  "input": "total",  "input_label_zh": "目标载荷", "input_label_en": "TARGET",   "uses_bar": false, "uses_collar": false, "uses_plates": false }
+  ],
+  "kind_default": "barbell",
+  "bar": {
+    "options": [10, 15, 20, 25, 30, 35, 40],
+    "default": 20,
+    "per_exercise_override": true,
+    "note": "杆重必须能逐动作覆盖：v0.30 以前它只有全局 state.plateCfg.barKg 一份，改一次影响所有动作，这就是「动作里选不了杆重」的根因。"
+  },
+  "collar": {
+    "pair_options": [2.5, 5, 10],
+    "pair_default": 5,
+    "belongs_to": ["barbell"],
+    "note": "collar_pair_kg 是一对（两只）的总重，装载时只加一次；重复加两次就是 gate S38 的注入靶。"
+  },
+  "plates": {
+    "kg_list": [25, 20, 15, 10, 5, 2.5, 1.25, 1, 0.75, 0.5, 0.25],
+    "qty_semantics": "键=片重、值=数量；null=不限（库存未录入时的唯一合法值），整数=现场有几枚。v0.31–v0.36 求解器与 UI 一律按 null 处理，qty 只是数据层预留。",
+    "shared_by": ["barbell", "plate"]
+  },
+  "dumbbell": {
+    "sides_options": [1, 2],
+    "sides_default": 2,
+    "increment_options": [1, 1.25, 2, 2.5, 5],
+    "increment_default": 2.5,
+    "stock_policy": "inventory.dumbbells 为 null 时按 increment 自由输入；为数组时吸附到最近档。"
+  },
+  "loaded": {
+    "posts_options": [1, 2, 4, 6, 8],
+    "posts_default": 2,
+    "variants": [{ "id": "standard", "zh": "挂片", "en": "PLATE LOADED" }, { "id": "smith", "zh": "史密斯", "en": "SMITH" }],
+    "balance_loading": true,
+    "note": "均衡装载：每个挂片位同一配方，总重 = base + posts × 每位片重。smith 的 base 是机头/杆体基数，不得再叠加杠铃杆重。"
+  },
+  "stack": {
+    "stacks_options": [1, 2],
+    "stacks_default": 1,
+    "variants": [{ "id": "standard", "zh": "插片", "en": "SELECTORIZED" }, { "id": "cable", "zh": "龙门架", "en": "CABLE" }],
+    "cfg_range": { "base_kg": { "min": 0, "max": 200 }, "inc_kg": { "min": 0.25, "max": 25 }, "pin": { "min": 0, "max": 60, "integer": true } },
+    "note": "每栈独立的 base/inc/pin 必须可自定义：不同机器配重片厚度与标称不一样，写死 5kg 会在第一台非 5kg 增量的机器上失效。"
+  },
+  "bodyweight": {
+    "modes": [{ "id": "pure", "zh": "自重", "en": "BW" }, { "id": "plus", "zh": "加重", "en": "WEIGHTED" }, { "id": "assist", "zh": "辅助", "en": "ASSISTED" }],
+    "storage": "signed_external",
+    "storage_note": "e.load = 带符号外载：正=加重、负=辅助、0=纯自重。净负荷 = BW × lever + load，永远现算、不入库。存净重会让一条纯自重动作在减重期自己漂成「辅助」。",
+    "display_rule": "三态标签判的是算出来的净值与 BW 的关系，不是存储值：load>0 显示「加重」、load=0 显示「自重」、load<0 显示「辅助」。",
+    "lever": { "min": 0.1, "max": 2, "default": 1 },
+    "bw_source": ["day.bw", "profile.bw"],
+    "clamp": "净负荷下限 0：辅助绝对值 > BW × lever 时钳 0 并给警告，不许出负数。",
+    "missing_bw": "两处体重都拿不到 ⇒ warnings 给「先填当日体重」，不许静默按 0 算。"
+  },
+  "special": {
+    "label_default": "特殊",
+    "fields": ["label", "unit_kg", "count", "manual_kg"],
+    "total_rule": "unit_kg × count；manual_kg 存在时覆盖总重（用于标称与实称不一致的器械）。"
+  },
+  "backoff": {
+    "options": [5, 10, 15],
+    "default": 10,
+    "semantics": "顶组重量降 5/10/15%，回落组 = mround(顶组 × (1 − drop), step_kg)",
+    "store": "e.backoffPct 数值；同时回写 e.rx 里的 @-X% 片段（rx_text 是自由文本列，不加新列）。",
+    "same_weight_warning": "取整后与顶组同重 ⇒ 提示，不静默。"
+  },
+  "step_rule": {
+    "barbell": "2 * min_plate",
+    "plate": "posts * min_plate",
+    "dumbbell": "increment_kg * sides",
+    "stack": "gcd(inc_1 .. inc_n)",
+    "bw": "min_plate",
+    "special": "unit_kg",
+    "no_stock_fallback": 2.5,
+    "note": "min_plate 取所属场地 inventory.plates 里实际存在的最小片重；库存为空时退回 no_stock_fallback。一律走模板已有的 mround()，不许自写 Math.round 分叉。"
+  },
+  "step_buttons": {
+    "multipliers": [1, 2],
+    "count": 4,
+    "label_rule": "四颗按钮 = ±stepOf(e) 与 ±stepOf(e)×2；文案由 L() 双语现算，markup 与 JS 里都不许出现 +2.5 / -5 这类数字字面量（gate S38）。0.5kg 步长产出 ±0.5 / ±1 是设计意图。"
+  },
+  "venues": {
+    "kinds": [
+      { "id": "gym",     "zh": "健身房", "en": "GYM" },
+      { "id": "home",    "zh": "居家",   "en": "HOME" },
+      { "id": "outdoor", "zh": "操场",   "en": "OUTDOOR" }
+    ],
+    "default_kind": "home",
+    "id_legacy": "legacy",
+    "name_max_len": 28,
+    "inventory_keys": ["bar_options", "bar_kg", "collar_on", "collar_pair_kg", "plates", "dumbbells", "posts_options", "stacks", "has_rack"],
+    "machines_required": ["name", "kind"],
+    "machines_optional": ["qty", "note"],
+    "machines_kind_source": "kinds",
+    "machines_note": "场地器械清单（v0.41 场地库 UI，FITX 门店盘点表风格：一行一台）。kind 取顶层六类引擎词表——这是引擎字段、必填；其余可选。挂在 state.venues[id].machines 数组上，不是 inventory 的键。",
+    "note": "库存归场地（不是全局）：同一台动作在商业店与家里可达配方不同，引擎按 state.activeVenueId 的那份 inventory 求解。v0.31 只有一个 legacy 场地，日程级绑定与场地库 UI 在 v0.41。",
+    "why_it_matters": "实测依据（不是设想）：同一用户在的两家店里，A 店最小片 0.25kg ⇒ 杠铃步长 0.5kg，B 店最小片 2.5kg ⇒ 步长 5kg。同一个 100kg 处方在 A 店可达、在 B 店不可达。步长若做成全局设置，配平提示必然对其中一家店是错的。"
+  },
+  "equipment": {
+    "kinds": [
+      { "id": "suit",     "zh": "比赛服",   "en": "SUIT" },
+      { "id": "briefs",   "zh": "比赛内裤", "en": "BRIEFS" },
+      { "id": "shirt",    "zh": "上衣",     "en": "SHIRT" },
+      { "id": "belt",     "zh": "腰带",     "en": "BELT" },
+      { "id": "sleeves",  "zh": "护膝",     "en": "KNEE SLEEVES" },
+      { "id": "wraps",    "zh": "绑膝",     "en": "KNEE WRAPS" },
+      { "id": "wrist",    "zh": "护腕",     "en": "WRIST WRAPS" },
+      { "id": "knee",     "zh": "膝勒",     "en": "KNEE BAND" },
+      { "id": "hooks",    "zh": "助力带",   "en": "STRAPS" },
+      { "id": "bands",    "zh": "弹力带",   "en": "BANDS" },
+      { "id": "chain",    "zh": "铁链",     "en": "CHAIN" },
+      { "id": "shoes",    "zh": "鞋",       "en": "SHOES" },
+      { "id": "other",    "zh": "其他",     "en": "OTHER" }
+    ],
+    "statuses": [
+      { "id": "owned",   "zh": "在用", "en": "IN USE" },
+      { "id": "race",    "zh": "比赛", "en": "RACE DAY" },
+      { "id": "wish",    "zh": "愿望单", "en": "WISHLIST" },
+      { "id": "retired", "zh": "退役", "en": "RETIRED" }
+    ],
+    "fields": ["kind", "brand", "series", "name", "size", "spec", "material", "origin", "wear", "purpose", "compliant", "note", "price", "qty", "ergo", "status", "photo"],
+    "spec_keys": [
+      { "kind": "shoes",   "zh": "坡差", "en": "HEEL DROP", "unit": "mm" },
+      { "kind": "belt",    "zh": "厚度", "en": "THICKNESS", "unit": "mm" },
+      { "kind": "sleeves", "zh": "厚度", "en": "THICKNESS", "unit": "mm" }
+    ],
+    "spec_keys_note": "字段终审（v0.41，用户金标准）：这三类的关键规格存数值+单位（UI 按本表给标签与单位），赛前检查页要拿数字与人对照规则阈值；表外种类 spec 为自由文本。",
+    "origin_options": ["new", "old", "new+old"],
+    "ergo_levels": [
+      { "id": "top",    "zh": "夯爆",   "en": "ELITE" },
+      { "id": "pro",    "zh": "顶级",   "en": "PRO" },
+      { "id": "best",   "zh": "人上人", "en": "BEST IN CLASS" },
+      { "id": "npc",    "zh": "NPC",    "en": "SERVICEABLE" },
+      { "id": "bad",    "zh": "拉完了", "en": "AVOID" }
+    ],
+    "wear_levels": [
+      { "id": "fn", "zh": "崭新出厂", "en": "FACTORY NEW",    "float_max": 0.07 },
+      { "id": "mw", "zh": "略有磨损", "en": "MINIMAL WEAR",   "float_max": 0.15 },
+      { "id": "ft", "zh": "久经沙场", "en": "FIELD-TESTED",   "float_max": 0.38 },
+      { "id": "ww", "zh": "破损不堪", "en": "WELL-WORN",      "float_max": 0.45 },
+      { "id": "bs", "zh": "战痕累累", "en": "BATTLE-SCARRED", "float_max": 1.0 }
+    ],
+    "wear_note": "成色按 CS2 五档（2026-11-05 用户追加）：UI 是五枚色条胶囊手选，色序绿/蓝/黄/橙/红取社区惯例；float_max 是 CS2 官方分档上界，只作 tooltip 与人话说明用，v0.41 不存 float、不自动落档。",
+    "compliance": "纯手动：合规只是一个布尔 + 一条备注，App 不给结论、不查规则表。",
+    "photo": "相册选图 + canvas 缩略图 → 存文件（两个新桥方法）；照片字节不得进任何 JSON 分片。",
+    "note": "本节 v0.31 只登记词表，UI 与字段终审在 v0.41；kind/statuses/ergo/origin 的名称现在定死，是为了 0.41 不再改一次名、迁一次档。ergo/origin/series/qty/price 五个字段直接对齐用户已维护的门店器械盘点表（Origin / Line-Series / Machine / Qty / UnitPrice / Ergo / Notes），导入时不需要再翻译一遍列名。字段终审（2026-11-05 用户金标准：多威/WL51201C/深蹲鞋/42码/坡差18mm/PU鞋面+EVA中底+橡胶大底）：name 即型号、series 可选产品线、显示名 = 类型+型号；size 存原生尺码体系文本（42码/M/L），不发明第二套尺码表；material 存 + 分隔串不解析（分部位·逐层叠放·配比三种语义都合法）；photo 按 D10 与两个桥方法整体延到 v0.43，v0.41 UI 不留照片入口。"
+  },
+  "equip_map": [
+    { "kind": "barbell",  "keywords": ["三项杆", "奥杆", "杠铃", "安全杠", "六角杠", "弧形杆", "粗杆", "软杆", "弹力带", "Bar", "Bumper"], "note": "「杠铃+弹力带」里弹力带是附加，不单独成体系。" },
+    { "kind": "dumbbell", "keywords": ["哑铃", "Dumbbell", "DB"] },
+    { "kind": "plate",    "keywords": ["挂片", "史密斯", "钟摆", "腰带机", "Panatta", "Precor", "Hoist", "Hammer", "Plate-Loaded", "Leverage", "Smith", "Leg Press", "Hack"] },
+    { "kind": "stack",    "keywords": ["插片", "龙门架", "绳索", "滑轮", "Selectorized", "Pin-Loaded", "Cable", "Booty Builder"] },
+    { "kind": "bw",       "keywords": ["自重", "引体", "双杠", "俯卧撑", "平地", "臂屈伸", "负重腰带", "辅助", "Assisted"] },
+    { "kind": "special",  "keywords": ["壶铃", "弹力带", "药球", "战绳", "Kettlebell", "跑步机", "椭圆机", "单车", "有氧", "Cardio"] }
+  ],
+  "equip_map_priority": ["dumbbell", "bw", "plate", "stack", "special", "barbell"],
+  "equip_map_priority_note": "次序是实测出来的，不是随手排的：① dumbbell 先于 barbell，否则「杠铃/哑铃 二选一」一律掉进杠铃；② bw 先于 plate/stack，因为门店清单里真有「站姿辅助双杠／引体」（Cable 8 站位）与「Pin-Loaded (Assisted)」这类挂绳/插片形态的自重辅助器械，按器械形态判会把它算成插片总重、把净负荷算错；③ barbell 永远兜底。关键词取自乐康新民/尊享吾悦/尊享万达三份器械盘点里实际出现的 Type 与 Machine 文案。",
+  "gear_source": ["plan", "local"],
+  "defaults": {
+    "barbell":  { "bar_kg": "venues.inventory.bar_kg", "collar_on": "venues.inventory.collar_on" },
+    "dumbbell": { "sides": 2, "increment_kg": 2.5 },
+    "plate":    { "variant": "standard", "posts": 2, "base_kg": 0 },
+    "stack":    { "variant": "standard", "stacks": 1 },
+    "bw":       { "lever": 1 },
+    "special":  { "label": "特殊", "unit_kg": 24, "count": 1 }
+  }
+}

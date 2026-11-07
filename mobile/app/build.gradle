@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application' version '9.4.1'
+}
+
+android {
+    namespace = 'com.roast.exdark'
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = 'com.roast.exdark'
+        minSdk = 24
+        targetSdk = 37
+        versionCode = 56
+        versionName = '0.61'
+    }
+
+    buildTypes {
+        debug { minifyEnabled = false }
+        release {
+            minifyEnabled = false
+            signingConfig = signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures { viewBinding = false }
+
+    packaging {
+        resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    }
+}

@@ -1,0 +1,319 @@
+{
+  "schema_ver": "RPL-Plan-v1",
+  "title": "RPL ExDark 计划交换契约",
+  "accepted_schema_vers": ["RPL-Plan-v1", "1", "v1"],
+  "sheet_order": ["Profile", "Blocks", "Days", "Workouts", "Telemetry", "Armor"],
+  "core_sheets": ["Profile", "Blocks", "Days", "Workouts"],
+
+  "seed": {
+    "title": "seed.json 的顶层键名单（gen_seed.py 的产物，App 的只读底版）",
+    "required_keys": ["profile", "structure", "proto", "weeks", "aux", "lib", "source", "programLib", "strategyLib"],
+    "invariant_keys": ["profile", "structure", "proto", "weeks", "aux", "lib"],
+    "payload_keys": ["source", "programLib", "strategyLib"],
+    "generated_by": "mobile/tools/gen_seed.py",
+    "note": "名单只这一份：gen_seed 产完后按 required_keys 自检（少键或多键都不落盘），plan_xlsx.validate_seed_schema 按 invariant_keys 校不变量（导入后的 App state 不带 payload 三键，所以不能拿 required 名单去校它），gate 的 S9/S24 从同一份名单核对 seed.json 与三处读者。任何一方再手抄一遍键名就是待修缺陷（红线 3）。要加键走 RPL-Plan-v2，别在这里就地改名。"
+  },
+
+  "cycle_presets": {
+    "title": "Block 周期类型名单（结构编辑器的下拉源 + gen_seed 的块元数据源）",
+    "note": "v0.23 起这里是唯一一份：gen_seed 不再用按下标的 BLOCK_PRESETS 猜块类型，模板的 CYCLE_PRESETS / MODE_BY_CYCLE 也从注入后的 PLAN_SCHEMA 取。`phase_match` 是权威源表 `周期` 表 C 列 PHASE 文本的小写关键词，命中即该 cycleType；都不命中就是 Custom，不瞎猜成四个 GZCLP 档之一。",
+    "items": [
+      {"id": "Hyper",     "zh": "肌肥大适应期", "en": "HYPERTROPHY",   "work_mode": "T1.Mod",     "rpe_step": 0.25, "phase_match": ["hypertroph"]},
+      {"id": "Strength",  "zh": "力量容量期",   "en": "5×5 STRENGTH", "work_mode": "T1.5x5",     "rpe_step": 0.25, "phase_match": ["strength"]},
+      {"id": "Transmute", "zh": "专项转化期",   "en": "3×3 TRANSMUTE", "work_mode": "T1.3x3",     "rpe_step": 0.5,  "phase_match": ["transmut"]},
+      {"id": "Peak",      "zh": "冲刺与测验期", "en": "PEAK & TEST",   "work_mode": "Top.Single", "rpe_step": 0.5,  "phase_match": ["peak", "taper", "test"]},
+      {"id": "Custom",    "zh": "自定义",       "en": "CUSTOM",        "work_mode": "Custom",     "rpe_step": 0.25, "phase_match": []}
+    ]
+  },
+
+  "capacity": {
+    "title": "计划长度与块数的软件容量上限",
+    "min_weeks": 1,
+    "max_weeks": 52,
+    "min_blocks": 1,
+    "max_blocks": 16,
+    "note": "2026-11-03 用户裁定：软件要能做 0–52 周 / 0–16 Block 的计划，内置那份 8 周 2 Block 只是随种子出厂的模板，不是模型上限（ROADMAP §2.4 层次一）。这里是一份出处：编辑器的上下界与 gen_seed 的自检都读它，别在 JS 里再写一个 52。daysPerWeek 的上限不在这里——它就是 Blocks/Days 的 max_rows，不另开一份。"
+  },
+
+  "autoreg": {
+    "title": "下周建议（自动调节）的判据阈值：唯一数字出处，模板与门禁都读这里",
+    "note": "ROADMAP §2.6 的 v1 规则里那些数字（80% 完成率、RPE 硬顶 9.5、±0.5 缺口、上肢 2.5 / 下肢 5kg、T3 用 1.25kg、T3 的 18/25 次干净次数、单次幅度上限 5% 或 5kg）只写这一份：模板的 nextWeekAdvice() 读它，不在 JS 里另抄。clean_reps 的两个阈值与 Workouts.prog_rules 里那两句人话是同一件事的两个读者（prog_rules 是给 xlsx prog_rule 列看的文字，本段是给代码看的数字），gate S29 盯着两者不许分叉。step_up_kg 按上/下肢给（S./D. 归下肢，其余归上肢），T3 一律走 t3_step_kg。下调不借加重档，按 regress_kg 自己落一档——否则下肢 5kg 的加重档会把 2.5kg 的回退量夹成 0，下调永远不触发。",
+    "min_completion": 0.8,
+    "rpe_hard_stop": 9.5,
+    "rpe_gap": 0.5,
+    "step_up_kg": {"lower": 5, "upper": 2.5},
+    "t3_step_kg": 1.25,
+    "regress_kg": 2.5,
+    "cap_pct": 0.05,
+    "cap_kg": 5,
+    "clean_reps": {"T3.Mod": 18, "T3.Def": 25},
+    "skip_mode_suffix": [".DL", ".Test"]
+  },
+
+  "notes": [
+    "本文件是 RPL-Plan-v1 六表契约的唯一事实源（决策 D7）：Python 侧 plan_xlsx.py 直读，前端由 build_html.py 注入为 const PLAN_SCHEMA。任何一端都不许再写第二份列序/枚举/范围。",
+    "本契约只描述「交换工作簿」，与权威源表 data/01_工作簿/RPL_ExDark_v0.15_ProMax.xlsx（24 表）无关，也不读写它（硬边界 1）。",
+    "path 一律是 App state 的点分路径；[n] 表示数组下标。derived 列导出时计算、导入时忽略（除非另有 recheck）。",
+    "AI 最简输入 = Profile/Blocks/Days/Workouts 四表；Telemetry/Armor 缺省即初始化为空遥测与默认装甲定义。"
+  ],
+
+  "anchors": {
+    "S.Main": "sq",
+    "B.Main": "bp",
+    "D.Main": "dl",
+    "ohp_derive": {"path": "ohp", "formula": "mround(bp * 0.72, 2.5)"}
+  },
+
+  "row_idx": {
+    "source": "mobile/tools/wkbook.py::DAYS",
+    "formula": "first(day_id) + (seq - 1)",
+    "first": {"A": 9, "B": 21, "C": 33, "D": 45, "E": 57, "F": 69},
+    "note": "A–D 与 wkbook.DAYS 的 first 逐值一致；E/F 是契约新造（wkbook 只有 A–D 几何），派生式 first = 9 + 12*(n-1)，任何代码里都不得再写第二遍。"
+  },
+
+  "conflict_policy": {
+    "pct_1rm_vs_load_kg": "authoritative_pct_warning_only",
+    "tolerance_kg": 5.0,
+    "round_step_kg": 2.5,
+    "pct_decimals": 4,
+    "rule": "pct_1rm 为权威：load_kg = mround(anchor * pct, 2.5) 无条件覆写；两者同时给出且偏差 > 5kg 只进 warnings（决策 D10），仅两者都缺才 error。"
+  },
+
+  "constraint_rules": [
+    {
+      "when": "forbidHeavySbd",
+      "why": "违反 [禁止 Heavy SBD]：该日禁主项池 T1/重负荷",
+      "any_of": [
+        {"cat_in": ["S.Main", "B.Main", "D.Main"], "tier_in": ["T1"]},
+        {"cat_in": ["S.Main", "B.Main", "D.Main"], "mode_any": ["Top.*", "T1.3x3", "T1.5x5", "T1.6x6", "T1.Mod.2", "T1.Mod.3", "T1.Def", "T1.S2", "T1.S3", "SS", "SL"]}
+      ]
+    },
+    {
+      "when": "forbidT1Main",
+      "why": "违反 [禁止比赛主项]：该日禁 .Main 动作",
+      "any_of": [{"cat_suffix": ".Main"}]
+    },
+    {
+      "when": "upperOnly",
+      "why": "违反 [仅限上肢日]：该日禁下肢 T1/T2 动作",
+      "any_of": [{"cat_prefix": ["S.", "D."], "tier_in": ["T1", "T2"]}]
+    },
+    {
+      "when": "deloadCap",
+      "also_when_tag": "tag_deload_rec",
+      "why": "违反 [减载日上限]：禁 Top/3×3/5×5/重低次组 且 RPE≤7",
+      "any_of": [
+        {"mode_any": ["Top.*", "T1.3x3", "T1.5x5", "T1.6x6", "T1.Mod.2", "T1.Mod.3", "T1.Def", "T1.S2", "T1.S3", "SS", "SL"]},
+        {"target_rpe_gt": 7}
+      ]
+    }
+  ],
+
+  "error_format": "[{sheet}!Row{row}.{column}] {reason}",
+  "error_row_for_sheet_level": "-",
+
+  "sheets": {
+    "Profile": {
+      "layout": "field_value",
+      "optional": false,
+      "columns": ["field", "value", "description"],
+      "alt_layout": "horizontal_two_row",
+      "fields": {
+        "schema_ver":   {"required": true,  "type": "str",  "enum_ref": "accepted_schema_vers", "desc": "契约版本标识"},
+        "start_date":   {"required": true,  "type": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "path": "profile.startDate", "desc": "周期开始日期，驱动全部周次日历区间"},
+        "plan_weeks":   {"required": false, "type": "int",  "range": [1, 52], "path": "profile.planWeeks", "cross": "sum(Blocks.work_weeks + Blocks.deload_weeks)", "on_missing": "total_weeks", "desc": "若填写必须严格等于 Blocks 周数之和；未填时按本次 Blocks 之和小结（不能沿用上一份计划的值）"},
+        "gender":       {"required": true,  "type": "enum", "enum": ["M", "F"], "path": "profile.gender", "desc": "性别（驱动 IPF GL / DOTS / JTS 性别乘数）"},
+        "age":          {"required": true,  "type": "int",  "range": [10, 100], "default": 24, "path": "profile.age", "desc": "年龄（驱动 JTS 年龄恢复系数）"},
+        "height_cm":    {"required": false, "type": "num",  "range": [100, 250], "default": 175, "path": "profile.height", "desc": "身高 cm"},
+        "bw_kg":        {"required": true,  "type": "num",  "range": [30, 250], "path": "profile.bw", "desc": "当前体重 kg"},
+        "init_bw_kg":   {"required": false, "type": "num",  "range": [30, 250], "default_from": "bw_kg", "path": "profile.initBw", "desc": "初始基准体重 kg"},
+        "target_bw_kg": {"required": false, "type": "num",  "range": [0, 250], "default": 0, "path": "profile.targetBw", "desc": "目标体重 kg"},
+        "equip":        {"required": false, "type": "enum", "enum": ["classic", "equipped"], "default": "classic", "path": "profile.equip", "desc": "比赛装备类别"},
+        "recovery":     {"required": false, "type": "str",  "default": "Normal / Balanced", "path": "profile.recovery", "desc": "恢复能力基线描述"},
+        "sq_1rm":       {"required": true,  "type": "num",  "range": [0, 600], "path": "profile.sq", "anchor": true, "desc": "当前深蹲 1RM（驱动 S.* 主项 %1RM 换算）"},
+        "bp_1rm":       {"required": true,  "type": "num",  "range": [0, 600], "path": "profile.bp", "anchor": true, "desc": "当前卧推 1RM（驱动 B.* 主项 %1RM 换算）"},
+        "dl_1rm":       {"required": true,  "type": "num",  "range": [0, 600], "path": "profile.dl", "anchor": true, "desc": "当前硬拉 1RM（驱动 D.* 主项 %1RM 换算）"},
+        "ohp_1rm":      {"required": false, "type": "num",  "range": [0, 600], "derive": "mround(bp_1rm * 0.72, 2.5)", "path": "profile.ohp", "desc": "当前推举 1RM，缺省自动推导"},
+        "init_sq":      {"required": false, "type": "num",  "range": [0, 600], "default_from": "sq_1rm", "path": "profile.initSq", "desc": "周期初始深蹲 1RM 基线"},
+        "init_bp":      {"required": false, "type": "num",  "range": [0, 600], "default_from": "bp_1rm", "path": "profile.initBp", "desc": "周期初始卧推 1RM 基线"},
+        "init_dl":      {"required": false, "type": "num",  "range": [0, 600], "default_from": "dl_1rm", "path": "profile.initDl", "desc": "周期初始硬拉 1RM 基线"},
+        "target_sq":    {"required": false, "type": "num",  "range": [0, 600], "default": 0, "path": "profile.targetSq", "desc": "周期目标深蹲 1RM"},
+        "target_bp":    {"required": false, "type": "num",  "range": [0, 600], "default": 0, "path": "profile.targetBp", "desc": "周期目标卧推 1RM"},
+        "target_dl":    {"required": false, "type": "num",  "range": [0, 600], "default": 0, "path": "profile.targetDl", "desc": "周期目标硬拉 1RM"},
+        "bar_kg":       {"required": false, "type": "enum", "enum": [10, 15, 20, 25, 30, 35, 40], "default": 20, "path": "plateCfg.barKg", "desc": "默认杠铃杆重 kg"},
+        "collars":      {"required": false, "type": "bool", "default": false, "path": "plateCfg.collars", "desc": "是否开启 5kg/对 赛扣配平"},
+        "motto":        {"required": false, "type": "str",  "default": "", "path": "profile.motto", "desc": "周期训练目标备注"}
+      }
+    },
+
+    "Blocks": {
+      "layout": "columns",
+      "optional": false,
+      "path": "structure.blocks",
+      "columns": ["block_id", "cycle_type", "name_zh", "name_en", "work_weeks", "deload_weeks", "work_mode", "deload_mode", "base_rpe", "rpe_step", "deload_rpe"],
+      "role_columns": {"block": "block_id", "work_weeks": "work_weeks", "deload_weeks": "deload_weeks",
+                       "base_rpe": "base_rpe", "deload_rpe": "deload_rpe", "work_mode": "work_mode", "deload_mode": "deload_mode"},
+      "keys": {
+        "block_id": "id", "cycle_type": "cycleType", "name_zh": "nameZh", "name_en": "nameEn",
+        "work_weeks": "workWeeks", "deload_weeks": "deloadWeeks", "work_mode": "workMode",
+        "deload_mode": "deloadMode", "base_rpe": "baseRpe", "rpe_step": "rpeStep", "deload_rpe": "deloadRpe"
+      },
+      "enums": {"cycle_type": ["Hyper", "Strength", "Transmute", "Peak", "Custom"]},
+      "ranges": {"work_weeks": [1, 24], "deload_weeks": [0, 4], "base_rpe": [5.0, 10.0], "deload_rpe": [5.0, 10.0], "rpe_step": [0.0, 1.0]},
+      "required": ["cycle_type", "name_zh", "work_weeks"],
+      "defaults": {"deload_weeks": 0, "deload_mode": "T1.DL", "base_rpe": 7.0, "rpe_step": 0.25, "deload_rpe": 6.0, "name_en": ""},
+      "row_rules": {
+        "block_id": {"renumber_on_import": "B1..Bn", "pattern": "^B\\d+$"},
+        "work_mode": {"enum_source": "seed.proto", "allow_empty": true},
+        "deload_mode": {"enum_source": "seed.proto", "allow_empty": true},
+        "total_weeks": {"must_equal": "profile.plan_weeks 与 structure.totalWeeks", "range": [1, 52]}
+      }
+    },
+
+    "Days": {
+      "layout": "columns",
+      "optional": false,
+      "path": "structure.dayDefs",
+      "columns": ["day_id", "label", "title_zh", "title_en", "weekday_offset", "focus_tags", "forbid_heavy_sbd", "forbid_t1_main", "upper_only", "deload_cap"],
+      "role_columns": {"day": "day_id", "weekday": "weekday_offset", "tags": "focus_tags",
+                       "title_en": "title_en", "title_zh": "title_zh"},
+      "weekday_labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "weekday_labels_note": "导入时按 weekday_offset 取此表回填 weeks[w][d].bio.day（App 遥测头显示的星期标签）。",
+      "keys": {
+        "day_id": "id", "label": "label", "title_zh": "titleZh", "title_en": "titleEn",
+        "weekday_offset": "weekdayOffset", "focus_tags": "focusTags"
+      },
+      "constraint_keys": {
+        "forbid_heavy_sbd": "forbidHeavySbd", "forbid_t1_main": "forbidT1Main",
+        "upper_only": "upperOnly", "deload_cap": "deloadCap"
+      },
+      "enums": {
+        "day_id": ["A", "B", "C", "D", "E", "F"],
+        "focus_tag": ["tag_sbd_heavy", "tag_sq_quad", "tag_bp_upper", "tag_dl_post", "tag_vari_weak", "tag_hyper_acc", "tag_power_gpp", "tag_deload_rec"]
+      },
+      "bools": ["forbid_heavy_sbd", "forbid_t1_main", "upper_only", "deload_cap"],
+      "required": ["day_id", "title_zh"],
+      "ranges": {"weekday_offset": [0, 6]},
+      "unique": ["day_id"],
+      "max_rows": 6,
+      "list_columns": {"focus_tags": ","},
+      "defaults": {"label": "", "title_en": "", "weekday_offset": 0, "focus_tags": ""}
+    },
+
+    "Workouts": {
+      "layout": "columns",
+      "optional": false,
+      "path": "weeks[week].{day}.exercises",
+      "columns": ["week", "day", "seq", "row_idx", "tier", "mode", "category", "movement", "pct_1rm", "load_kg", "sets", "reps", "rx_text", "target_rpe", "prog_rule", "actual_reps", "actual_rpe", "done_sets", "done", "notes"],
+      "keys": {"mode": "mode", "category": "cat", "movement": "mv", "load_kg": "load", "reps": "reps", "rx_text": "rx", "target_rpe": "targetRpe", "actual_rpe": "rpe", "done_sets": "doneSets", "done": "done", "notes": "notes", "row_idx": "row"},
+      "required": ["week", "day", "movement"],
+      "ranges": {"target_rpe": [5.0, 10.0], "actual_rpe": [1.0, 10.0], "pct_1rm": [0.0, 1.5], "load_kg": [0, 600], "sets": [0, 20], "reps": [0, 100], "done_sets": [0, 20], "actual_reps": [0, 100]},
+      "enums": {
+        "day_id_ref": "Days.day_id",
+        "mode_source": "seed.proto",
+        "category_source": "seed.lib.categories"
+      },
+      "derived_columns": {
+        "seq": {"on": "export", "from": "该 (week,day) 内的 1-based 序号", "on_import": "用于排序，不单独落字段"},
+        "row_idx": {"on": "both", "from": "row_idx.first[day] + seq - 1", "keep_on_import": true, "note": "App 导出原样保留，用于关联 e1RM 历史；AI 留空则按公式补齐"},
+        "tier": {"on": "export", "from": "seed.proto[mode].tier"},
+        "sets": {"on": "export", "from": "seed.proto[mode].sets"},
+        "pct_1rm": {"on": "export", "from": "round(load_kg / anchor_1rm, 4)；仅当 category 命中 anchors 且 anchor > 0", "authority": true},
+        "prog_rule": {"on": "export", "from": "prog_rules[mode] 或 prog_rules._default", "on_import": "忽略（App 无对应字段）"},
+        "actual_reps": {"on": "export", "from": "空串", "on_import": "忽略并 warning（App 无对应字段；reps 才是处方次数）"}
+      },
+      "bools": ["done"],
+      "role_columns": {
+        "week": "week", "day": "day", "seq": "seq", "row": "row_idx",
+        "tier": "tier", "mode": "mode", "category": "category", "movement": "movement",
+        "pct": "pct_1rm", "load": "load_kg", "sets": "sets", "reps": "reps",
+        "rx": "rx_text", "target_rpe": "target_rpe", "prog_rule": "prog_rule",
+        "actual_reps": "actual_reps", "actual_rpe": "actual_rpe",
+        "done_sets": "done_sets", "done": "done", "notes": "notes"
+      },
+      "unique": ["week", "day", "row_idx"],
+      "prog_rules": {
+        "Top.Single": "AMRAP>=1:+2.5kg|<1:->0.5RPE",
+        "Top.Set": "AMRAP>=3:+2.5kg|<3:->0.5RPE",
+        "Top.Test": "单组测试：记录即更新 1RM 估计",
+        "T1.Mod": "AMRAP>=8:+2.5kg|5-7:+0kg|<5:->T1.Mod.2",
+        "T1.Mod.2": "AMRAP>=6:+2.5kg|3-5:+0kg|<3:->T1.Mod.3",
+        "T1.Mod.3": "AMRAP>=5:+2.5kg|2-4:+0kg|<2:->5RM 重测后重开分支",
+        "T1.3x3": "全对完成:+2.5kg|否则:+0kg",
+        "T1.5x5": "AMRAP>=5:+2.5kg|<5:->T1.Def",
+        "T1.Def": "固定 5 组 × 3+，不加重量|未达 base:->T1.S2",
+        "T1.S2": "固定 6 组 × 2+，不加重量|未达 base:->T1.S3",
+        "T1.S3": "固定 10 组 × 1+，不加重量|未达 base:->5RM 重测后重开分支",
+        "T1.6x6": "AMRAP>=6:+2.5kg|<6:->T1.DL",
+        "T1.DL": "减载周：组数与强度均按计划表，不做进阶",
+        "T2.Mod": "AMRAP>=10:+2.5kg|<10:+0kg",
+        "T2.Vol": "AMRAP>=8:+2.5kg|<8:+0kg",
+        "T2.Mod.3": "4×4 直组：全组 4 次完成 +2.5kg|任一组未达:+0kg（不追 AMRAP）",
+        "T2.Def": "3×10 容量组：25 次干净次数达标再 +Load",
+        "T2.Def.2": "3×8 容量桥：全组 8 次完成 +2.5kg|任一组未达:+0kg",
+        "T2.Def.3": "3×6 强度桥：全组 6 次完成 +2.5kg|任一组未达:+0kg",
+        "T2.Tr": "3×5 专项转化：全组完成即 +2.5kg，不追 AMRAP",
+        "T2.5x5": "5×5 直组卧推：全组 5 次完成 +2.5kg，任一组未达 +0kg（不走 AMRAP）",
+        "T2.DL": "减载周：不进阶",
+        "T3.Mod": "AMRAP>=18:+1.25kg|<18:+0kg",
+        "T3.Def": "3×15+：末组 25 次干净次数达标再 +Load",
+        "T3.Tr": "3×8 低疲劳辅助：不加重量",
+        "T3.Power": "5×3 高翻：全组完成 +2.5kg，速度优先，不追 AMRAP",
+        "T3.Tech": "3×5 技术变式：动作质量优先，不加重量",
+        "T3.DL": "减载周：不进阶",
+        "_default": "无进阶规则：按处方执行"
+      }
+    },
+
+    "Telemetry": {
+      "layout": "columns",
+      "optional": true,
+      "path": "weeks[week].{day}",
+      "columns": ["week", "day", "readiness", "bw_kg", "directive", "sleep_h", "rhr_bpm", "hrv_ms", "fuel_strategy", "exec_status", "duration_min", "water_l", "session_rpe", "joint_pain"],
+      "keys": {
+        "readiness": "bio.readiness", "bw_kg": "bio.bw", "directive": "bio.directive",
+        "sleep_h": "bio.sleep", "rhr_bpm": "bio.rhr", "hrv_ms": "bio.hrv",
+        "fuel_strategy": "post.fuel", "exec_status": "post.status", "duration_min": "post.duration",
+        "water_l": "post.water", "session_rpe": "post.sessionRpe", "joint_pain": "post.joint"
+      },
+      "required": ["week", "day"],
+      "ranges": {"bw_kg": [30, 250], "sleep_h": [0, 16], "rhr_bpm": [20, 120], "hrv_ms": [0, 300], "duration_min": [0, 600], "water_l": [0, 20], "session_rpe": [1.0, 10.0], "joint_pain": [0, 10]},
+      "enums": {
+        "fuel_strategy": ["cut", "maintain", "bulk"],
+        "exec_status": ["green", "amber", "red"],
+        "readiness_free_text": true
+      },
+      "unique": ["week", "day"],
+      "role_columns": {"week": "week", "day": "day"},
+      "mirror_day_level": ["readiness", "bw"],
+      "numeric_from": "ranges",
+      "comment": "mirror_day_level：这些 bio 叶名同时写回日级同名字段（App 历史字段，CSV 导入也这么干）。列的数值/文本属性按它是否出现在 ranges 里判定，代码不写字段名白名单。"
+    },
+
+    "Armor": {
+      "layout": "columns",
+      "optional": true,
+      "path": "weeks[week].auxDays",
+      "columns": ["week", "item_idx", "domain", "item", "target", "intensity", "mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "keys": {"item_idx": "item_idx", "domain": "domain", "item": "item", "target": "target", "intensity": "intensity"},
+      "day_columns": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "required": ["week", "item_idx"],
+      "bools": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "unique": ["week", "item_idx"],
+      "role_columns": {"week": "week", "item": "item_idx", "domain": "domain", "item_name": "item", "target": "target", "intensity": "intensity"},
+      "definition_source": "state.aux（全局 10 项定义，逐周行重复写出）",
+      "rules": {
+        "item_idx": "0-based，指向 state.aux 下标；导入时以最小 item_idx 行的 domain/item/target/intensity 重建定义，其余行若与之一致则忽略",
+        "mismatch": "同一 item_idx 出现不同定义 → error"
+      }
+    }
+  },
+
+  "state_defaults_on_import": {
+    "structure.daysPerWeek": "len(Days)",
+    "structure.totalWeeks": "sum(Blocks.work_weeks + Blocks.deload_weeks)",
+    "structure.version": 3,
+    "weeks": "按 totalWeeks 生成 1..N 的空日结构（日键取 Days.day_id 顺序）",
+    "inactiveWeeks": "超出本次计划周数的既有周键不删除，登记到 structure.inactiveWeeks: number[]（决策 D4：归档 + 冻结）"
+  }
+}

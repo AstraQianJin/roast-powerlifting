@@ -1,0 +1,16 @@
+﻿source,title,type,url,status,reason,license
+USPA,USPA Technical Rules 2025 v1,PDF,https://uspa.net/wp-content/uploads/2025/03/USPA-Rulebook-March-24th-2025.pdf,download_unstable,下载多次超时/截断；保留 2024 全文 + 2025 链接,official_public
+USAPL,USA Powerlifting Rulebook 2026.2,PDF (embedded),https://www.usapowerlifting.com/technical/,no_direct_link,页面为嵌入式 PDF 查看器；未取得直链,official_public
+WRPF,WRPF Technical Rules 2023,PDF,https://australia.worldrawpowerlifting.com/wp-content/uploads/2024/01/WRPF-Rule-Book-PL-1-1.pdf,license_no_copy,官方 PDF 明确禁止未授权复制；只建链接元数据,copyright
+Calgary Barbell,16 Week / 8 Week Programs,Google Sheet,https://liftvault.com/programs/powerlifting/calgary-barbell-16-week-8-week-program-spreadsheets/,export_failed,Google Sheets 导出多次失败；只建链接元数据,free_public
+JTS,Scientific Principles of Strength Training (full),paid book,https://www.jtsstrength.com/,paid,现有中文 PDF 为用户提供；不新增下载、不再分发,user_provided_copyright
+JTS,A Thoughtful Pursuit of Strength (full),paid book,https://www.jtsstrength.com/,paid,仅有官方免费预览；完整版付费,paid
+JTS,Beginner's Guide to Powerlifting (full),paid book,https://www.jtsstrength.com/,paid,仅有官方免费预览；完整版付费,paid
+JTS,The Juggernaut Method 2.0,paid book,https://www.jtsstrength.com/,paid,付费书；只保留免费模板,paid
+JTS,Juggernaut AI Coaching,paid service,https://www.juggernautai.app/,paid,订阅服务；不下载内容,paid
+RTS,RTS Manual (Digital),paid book,https://store.reactivetrainingsystems.com/products/rts-manual-digital,paid,官方数字手册；只建链接元数据,paid
+Wendler,5/3/1 / Beyond 5/3/1 / 5/3/1 Forever,paid books,https://www.jimwendler.com/,paid,付费书；只保留免费模板,paid
+Sheiko,Powerlifting (book),paid book,https://sheiko.com/,paid,付费书；只保留免费模板,paid
+Westside,Westside Barbell Book of Methods,paid book,https://westside-barbell.com/,paid,现有 EN/ZH PDF 为用户提供；不新增下载,user_provided_copyright
+Alex Bromley,Base Strength,paid book,https://www.empirebarbell.com/,paid,付费书；Bullmastiff/70s 模板免费,paid
+OpenPowerlifting,Full CSV dataset,dataset,https://www.openpowerlifting.org/data,large_dataset,体积大且更新频繁；只建链接，按需下载,open_data

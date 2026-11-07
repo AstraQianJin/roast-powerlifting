@@ -1,0 +1,26 @@
+﻿priority,category,title,source,type,status_reason
+P1,规则,USA Powerlifting Rulebook 2026.2,https://www.usapowerlifting.com/technical/,PDF (embedded),页面为嵌入式 PDF，需人工下载或找直链
+P1,规则,USPA Technical Rules 2025 v1,https://uspa.net/wp-content/uploads/2025/03/USPA-Rulebook-March-24th-2025.pdf,PDF,下载不稳定；可重试或人工下载
+P1,规则,WRPF Technical Rules 2023,https://australia.worldrawpowerlifting.com/wp-content/uploads/2024/01/WRPF-Rule-Book-PL-1-1.pdf,PDF,官方禁止未授权复制，只建链接
+P1,规则,IPF Approved List,https://www.powerlifting.sport/rules/codes/info/approved-list,HTML,装备合规清单，建议抓取为 CSV
+P1,模板,Calgary Barbell 16 Week / 8 Week,https://liftvault.com/programs/powerlifting/calgary-barbell-16-week-8-week-program-spreadsheets/,Google Sheet,导出失败；可人工另存为 xlsx
+P1,模板,Greg Nuckols 28 Programs,https://liftvault.com/programs/powerlifting/greg-nuckols-28-programs-spreadsheet/,Google Sheet,页面未暴露 Sheet ID；需人工另存
+P2,模板,Sheiko Advanced Small/Medium/Large Load,https://liftvault.com/programs/powerlifting/sheiko-spreadsheets/,Google Sheet,已有 Beginner/Intermediate Medium；高级版待补
+P2,模板,nSuns CAP3 / 5-Day Row Version,https://liftvault.com/programs/powerlifting/n-suns-lifting-spreadsheets/,Google Sheet,已有 LP Bundle/Advanced/Roflwafflez；CAP3 待补
+P2,模板,5/3/1 BBB / Power Hypertrophy / Vanilla + 3/5/1,https://liftvault.com/programs/powerlifting/jim-wendlers-531-spreadsheet/,Google Sheet,已有主模板/新手版；变式待补
+P2,模板,GZCL Jacked & Tan 2.0 / UHF,https://liftvault.com/programs/powerlifting/gzcl-template-spreadsheets/,Google Sheet,已有 GZCLP/P-Zero；JnT2/UHF 待补
+P2,模板,Smolov / Smolov Jr,https://liftvault.com/programs/powerlifting/smolov-spreadsheet/,Google Sheet,高专项化俄式模板；待补
+P2,模板,Coan/Phillipi Deadlift,https://liftvault.com/programs/lift-specific/deadlift/,Google Sheet,硬拉专项；待补
+P2,模板,Mag/Ort Deadlift,https://liftvault.com/programs/lift-specific/deadlift/,Google Sheet,硬拉专项；待补
+P2,研究,Squat depth and lower-limb muscle volume,https://pubmed.ncbi.nlm.nih.gov/,OA/HTML,需逐篇检索 PMC ID 后下载
+P2,研究,Velocity-based training vs percentage-based training,https://pubmed.ncbi.nlm.nih.gov/,OA/HTML,与 RPE/VBT 相关；待检索
+P2,研究,Training frequency meta-analysis,https://pubmed.ncbi.nlm.nih.gov/,OA/HTML,与周频率/容量相关；待检索
+P2,研究,Powerlifting masters athletes injury/performance,https://pubmed.ncbi.nlm.nih.gov/,OA/HTML,老年/大师组；待检索
+P2,研究,"Female powerlifters: injury, menstrual cycle, RED-S",https://pubmed.ncbi.nlm.nih.gov/,OA/HTML,女性专项；待检索
+P2,研究,Equipment (belt/sleeves/wraps) effects on performance,https://pubmed.ncbi.nlm.nih.gov/,OA/HTML,装备规则与表现；待检索
+P2,书,Practical Programming for Strength Training,https://startingstrength.com/,paid book,只建元数据；已有 Starting Strength 中文 PDF
+P2,书,Science and Practice of Strength Training,https://www.humankinetics.com/,paid book,只建元数据
+P2,书,Supertraining,https://www.ultimateathleteconcepts.com/,paid book,只建元数据
+P2,书,The Muscle and Strength Pyramid: Training/Nutrition,https://muscleandstrengthpyramids.com/,paid book,只建元数据
+P3,工具,OpenPowerlifting full CSV,https://www.openpowerlifting.org/data,dataset,体积大；按需下载
+P3,工具,IPF results/records database,https://www.powerlifting.sport/records,HTML/CSV,可做选手画像与级别校验

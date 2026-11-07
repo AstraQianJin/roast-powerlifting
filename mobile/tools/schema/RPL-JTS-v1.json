@@ -1,0 +1,183 @@
+{
+  "jts_ver": "RPL-JTS-v1",
+  "title": {
+    "zh": "恢复/准备度问卷（JTS 六维）",
+    "en": "Recovery / Readiness questionnaire (JTS six-dimension)"
+  },
+  "not_exchange": "本契约是 JTS 六维问卷 + 准备度评分 + 恢复乘数 REC_base 段的唯一权威源，build_html.py 注入为 const JTS_SCHEMA。前端不许写第二份问题/权重/分数线（gate 静态守卫盯手抄）。B_gpp / F_gpp 两个 GPP 通道的权威在 RPL-GPP-v1.json#recovery，本契约只拥有 REC_base，两处互引不各写一份数字（D14）。",
+  "notes": [
+    "JTS 保留为恢复输入（F6）：六维问题科学化重构 + UI 重做，旧评分可迁移；不删除 JTS、不降级成纯展示、不去掉问卷只用每日状态。",
+    "量表统一 7 点 Likert（1–7），与 Hooper Index 一致；每项给 1/4/7 三个言语锚点（中英），中间点无锚（标准做法）。旧 11 钮（0–10）是 320px 重叠的直接原因，7 点量表本身把问题减半（R3 §6）。",
+    "存储极性 = 显示极性：正向项 7=最好，反向项（rev）7=最差；计分时统一归一到「越高越就绪」。",
+    "未填项不再按中性 5 顶替，改为从均值剔除并显示 confidence；filled<min_filled 时不输出档位、落回默认档 1（与 matchReadyIndex 兜底一致）。理由：把缺失当数据会伪造分数（R3 §3.1，Saw 2016）。",
+    "六维等权（各 1/6）：差异化权重（旧 0.30/0.25/0.25/0.20）无实证出处，属待清除的自造数字；weights 字段默认全 1.0，为将来个体化留口，不写第二套数字（R3 §3.3）。"
+  ],
+  "scale": { "min": 1, "max": 7, "points": 7, "anchors_at": [1, 4, 7] },
+  "items": [
+    {
+      "id": "sleep", "polarity": "forward", "rev": false, "weight": 1.0, "lookback": { "zh": "昨晚", "en": "last night" },
+      "question": { "zh": "昨晚睡眠质量如何？", "en": "How well did you sleep last night?" },
+      "anchors": {
+        "1": { "zh": "很差，几乎没睡", "en": "Very poor, barely slept" },
+        "4": { "zh": "一般，睡了但醒来仍累", "en": "Fair, woke tired" },
+        "7": { "zh": "很好，睡足且醒后精神", "en": "Excellent, refreshed" }
+      }
+    },
+    {
+      "id": "stress", "polarity": "reverse", "rev": true, "weight": 1.0, "lookback": { "zh": "近 48 小时", "en": "last 48h" },
+      "question": { "zh": "近 48 小时生活+训练的综合压力有多大？", "en": "Overall life + training stress in the last 48h?" },
+      "anchors": {
+        "1": { "zh": "几乎没有压力", "en": "Almost none" },
+        "4": { "zh": "中等，可控", "en": "Moderate, manageable" },
+        "7": { "zh": "压力极大，难以承受", "en": "Overwhelming" }
+      }
+    },
+    {
+      "id": "fatigue", "polarity": "reverse", "rev": true, "weight": 1.0, "lookback": { "zh": "现在/近 48 小时", "en": "right now / last 48h" },
+      "question": { "zh": "现在整体疲劳感（身体+精神）有多重？", "en": "Overall physical + mental fatigue right now?" },
+      "anchors": {
+        "1": { "zh": "精力充沛，毫无疲劳", "en": "Fully energetic" },
+        "4": { "zh": "有些疲劳，尚可训练", "en": "Somewhat tired, trainable" },
+        "7": { "zh": "极度疲劳，只想躺下", "en": "Exhausted" }
+      }
+    },
+    {
+      "id": "soreness", "polarity": "reverse", "rev": true, "weight": 1.0, "lookback": { "zh": "近 48 小时", "en": "last 48h" },
+      "question": { "zh": "肌肉酸痛程度如何？（重点是三大项目标肌群）", "en": "Muscle soreness (esp. SBD target muscles)?" },
+      "anchors": {
+        "1": { "zh": "完全不酸", "en": "No soreness" },
+        "4": { "zh": "中度酸痛，活动后减轻", "en": "Moderate, eases with movement" },
+        "7": { "zh": "重度酸痛，活动受限", "en": "Severe, limits movement" }
+      }
+    },
+    {
+      "id": "motivation", "polarity": "forward", "rev": false, "weight": 1.0, "lookback": { "zh": "今天/本周", "en": "today / this week" },
+      "question": { "zh": "现在对今天/本周训练的动力与意愿如何？", "en": "Motivation & willingness to train today/this week?" },
+      "anchors": {
+        "1": { "zh": "完全不想练", "en": "No desire at all" },
+        "4": { "zh": "一般，需要推着走", "en": "Neutral, need a push" },
+        "7": { "zh": "强烈想练，迫不及待", "en": "Eager to train" }
+      }
+    },
+    {
+      "id": "energy", "polarity": "forward", "rev": false, "weight": 1.0, "lookback": { "zh": "今天/近 48 小时", "en": "today / last 48h" },
+      "question": { "zh": "能量与食欲状态如何？（进食是否支撑训练）", "en": "Energy & appetite (is fueling supporting training)?" },
+      "anchors": {
+        "1": { "zh": "没胃口/能量枯竭", "en": "No appetite, depleted" },
+        "4": { "zh": "正常", "en": "Normal" },
+        "7": { "zh": "食欲好，能量充足", "en": "Strong appetite, fueled" }
+      }
+    }
+  ],
+  "item_order": ["sleep", "stress", "fatigue", "soreness", "motivation", "energy"],
+  "flags": {
+    "sick": {
+      "type": "bool", "default": false, "effect": "force_red",
+      "zh": "近 48h 有发热/感染症状？", "en": "Fever/infection symptoms in the last 48h?",
+      "note": "sick=true 强制红档（中枢疲劳档 id=4）并在建议置顶休息——急性疾病不该用连续分表达（R3 §1.6 health 维审计 / §3.2）。非计分旗标，不进 R 均值。"
+    }
+  },
+  "scoring": {
+    "normalize": { "forward": "(v-1)/6*100", "reverse": "(7-v)/6*100" },
+    "aggregate": "R = round(mean(已填项归一分))",
+    "range": [0, 100],
+    "blank_policy": "exclude",
+    "min_filled": 3,
+    "min_filled_fallback": "filled<3 不输出档位、落回默认档 1（matchReadyIndex 兜底）",
+    "monotonic_check": { "all_7": 100, "all_4": 50, "all_1": 0 },
+    "weight_note": "六维等权，weights 默认全 1.0；R = round(Σ(w_i·n_i)/Σw_i over filled)，等权时退化为均值"
+  },
+  "readiness": {
+    "ready_at": [90, 75, 60, 45],
+    "ready_at_note": "新阈值 [90,75,60,45] 为定标推演值（R3 §3.4 / §8.4），数字只进本契约单源；READY_AT 常量数组形态不变，仍是唯一出处。上线后本人 2–4 周实填回看档位分布再微调，不在代码里写第二份。",
+    "bands": [
+      { "id": 0, "label": { "zh": "巅峰", "en": "Peak" }, "min_R": 90, "pct": 100 },
+      { "id": 1, "label": { "zh": "良好", "en": "Good" }, "min_R": 75, "pct": 90 },
+      { "id": 2, "label": { "zh": "轻度疲劳", "en": "Mild" }, "min_R": 60, "pct": 80 },
+      { "id": 3, "label": { "zh": "重度", "en": "Heavy" }, "min_R": 45, "pct": 70 },
+      { "id": 4, "label": { "zh": "中枢疲劳", "en": "Fried" }, "min_R": 0, "pct": 55, "sick_forced": true }
+    ],
+    "band_rule": "R≥90→0；75≤R<90→1；60≤R<75→2；45≤R<60→3；R<45 或 sick→4。pct 沿用现有 READY 文案与 HUD/CSV/周容量兼容口径，分数线换新。",
+    "color_note": "档位色号不进本契约（避免注入 JS 后触发 S33「JS 无档位色号」）；沿用模板既有 READY 档位配色机制（按 band id 取 CSS 令牌），谁是色板单源在模板令牌块。"
+  },
+  "recMult": {
+    "formula": "REC = clamp(REC_base + B_gpp - F_gpp, 0.55, 1.25); recMult = REC",
+    "rec_base": {
+      "expr": "0.75 + 0.50*(R/100)",
+      "R_source": "readiness 段算出的准备度分 R（0–100）",
+      "endpoints": { "R0": 0.75, "R50": 1.00, "R100": 1.25 }
+    },
+    "gpp_channels_source": "RPL-GPP-v1.json#recovery（B_gpp=min(0.08,Σrec_bonus)、F_gpp=min(0.06,Σfatigue)、地标扣减系数、SRU 加成）——本契约不复制 GPP 数字（D14）",
+    "clamp": [0.55, 1.25],
+    "crs_retired": {
+      "old": "CRS = round(recMult*82)",
+      "reason": "82 无出处，是显示层再包装；新 UI 直接显示 R（0–100）与 REC%，少一层不可解释换算。旧 CRS 落 legacy 数据不迁移（R3 §4.2/§5.2）。"
+    },
+    "downstream_unchanged": "volMult=age×sex×str×rec×nutr、地标缩放、round(mav/days)、recSetsOverride 全部保持——恢复乘数仍是 JTS/GPP 进容量引擎的唯一通道（F6 红线）。",
+    "version_note": "v0.45 变更原因（C8 不得静默改数 / D14）：旧式 recMult=M_sleep×M_stress×M_readiness+B_armor 的三个乘子全是自造曲线（0.45 次幂 / 0.035 斜率 / 0.03 斜率，无文献出处），乘积结构让相关维重复计罚、下探过猛，中性输入（全 5）得 ≈0.88 而非 1.0（不填=默认打折），且 M_readiness 的 0.30/0.25/0.25/0.20 权重与线性分等权口径自相矛盾。新式改单一线性映射 REC_base：单调、可解释、可测边界（R=50↔1.00 中性），文献不支持任何特定曲线形状，线性是最少假设的选择；值域下界实际 0.75（clamp 0.55 保留作安全网），周地标缩放的破坏性下降更稳。B_armor 泛化为 B_gpp（按条目 rec_bonus）走 GPP 契约。"
+  },
+  "setRx": {
+    "note": "档位级指导映射（供文案与建议区显示，不直接覆盖地标引擎；R3 §3.5）。保持现有机制：R→recMult→VOL_MULT→地标缩放→rec=round(mav/days)。",
+    "per_band": [
+      { "band": 0, "zh": "可按 MAV 推荐执行；如处冲刺期可上探至推荐 max", "en": "Run MAV recommendation; may probe to rec max in a sprint block" },
+      { "band": 1, "zh": "按推荐 rec 执行", "en": "Run the recommended rec" },
+      { "band": 2, "zh": "T2/T3 各减 1 组或降至推荐 min；T1 维持但 RPE 上限 8", "en": "Cut 1 set from T2/T3 or drop to rec min; keep T1 but cap RPE 8" },
+      { "band": 3, "zh": "只做 T1 技术组 + 减至 min；砍全部 T3；考虑器械降维", "en": "T1 technique sets only at min; cut all T3; consider machine downgrade" },
+      { "band": 4, "zh": "减载周处理：仅 MV 级技术量或休训；置顶副交感/睡眠建议", "en": "Deload: MV-level technique only or rest; prioritize parasympathetic/sleep" }
+    ],
+    "decision_tree_thresholds": {
+      "note": "器械降维置顶触发条件（随量表换算，R3 §3.5）：旧 soreness≥7/10→新 soreness≥5/7；旧 sleep≤6/10→新 sleep≤3/7；旧 stress≥7/10→新 stress≥5/7。",
+      "soreness_gte": 5, "sleep_lte": 3, "stress_gte": 5
+    }
+  },
+  "migration": {
+    "from": "v1-0to10",
+    "schema_stamp": "7→8（D15：JTS 迁移并入 migrateStateV8，不新开 STAMP 9）",
+    "answer_formula": "v7 = clamp(1, 7, round(v10*6/10) + 1)",
+    "answer_table": { "0": 1, "1": 2, "2": 2, "3": 3, "4": 3, "5": 4, "6": 5, "7": 5, "8": 6, "9": 6, "10": 7 },
+    "dim_map": [
+      { "old": "sleep", "new": "sleep", "how": "直接换算（同极性）" },
+      { "old": "stress", "new": "stress", "how": "直接换算（同极性，均反向计分）" },
+      { "old": "soreness", "new": "soreness", "how": "直接换算（同极性）" },
+      { "old": "drive+willingness", "new": "motivation", "how": "avg=(drive+willingness)/2（缺一取另一）→ 按 answer_table 换算；两项全缺则 motivation 留空" },
+      { "old": "health", "new": "fatigue", "how": "语义变了：health 正向健康感 ≈ fatigue 反面。fatigue7 = 8 - v7(health)，存档打 approx:true；新问卷首个采集周期提示重新采集，approx 值只用于历史周回看，不作当周决策依据", "approx": true },
+      { "old": null, "new": "energy", "how": "无旧数据，留空重新采集（不回填中性值；confidence 显示 5/6）" },
+      { "old": null, "new": "sick", "how": "默认 false" }
+    ],
+    "approx_flags": ["fatigue<-health"],
+    "backup": "migrateBackup.v8.jts['W{n}']（含旧日级键，原始对象整体存入）",
+    "ver_marker": { "ver": 2 },
+    "keep_day_keys": true,
+    "keep_day_keys_note": "旧日级键 {w}_{A..D} 原样保留不删（与 v6 行为一致）",
+    "score_migration": "凡保留有原始答案的周，一律按 answer_table 换算原始值后重算 R，不直接搬旧线性分（避免两套阈值语义混叠）；仅有旧档位字符串的记录照旧可被 matchReadyIndex 第②路匹配，无需迁移。",
+    "rollback": "中途抛错整批回滚（沿用 v7 惯例），禁止恢复失败静默落空（红线 4）。"
+  },
+  "ui": {
+    "note": "UI 重叠根因与修法（R3 §6），v0.45-B 落地；验收 320px 无重叠无遮挡。",
+    "layout": "单人纵向：每维一张纵向卡，上行=问题全文（zh 主 en 副，12–13px 正常字号，不再用 92px 截断列），下行=7 段横向刻度。",
+    "scale_grid": "grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px → 260px 内容宽下每钮 ≈31px 宽 × ≥36px 高；刻度两端下方放 1/7 锚点缩写，选中项上方浮出完整锚点文案。",
+    "fallback": "若 31px 仍嫌窄（低端机字体放大），降级为纵向 7 行全宽单选列表（每行 ≥40px 高），320px 下零重叠。",
+    "no_fixed_px": "禁用固定 px 列（92px 这类）；一律 minmax(0,1fr) + overflow-wrap。",
+    "miss_row": ".jts-miss 因子芯片改为可折叠「详情」行，默认只显示 R、REC%、coverage。",
+    "sick_row": "疾病旗标 sick 做成量表区上方独立开关行，不占六维网格。",
+    "touch_target": "触控目标 ≥44px（WCAG 2.5.5 / Android 48dp）；旧 11 钮 ≈12×26px 远低于此，误触相邻分数是必然。"
+  },
+  "sources": [
+    { "n": 1, "citation": "Saw AE, Main LC, Gastin PB. Monitoring the athlete training response: subjective self-reported measures trump commonly used objective measures: a systematic review. Br J Sports Med. 2016;50(5):281-291. doi:10.1136/bjsports-2015-094758", "used_for": "主观问卷整体效度；自评质量与缺失剔除" },
+    { "n": 2, "citation": "Hooper SL, Mackinnon LT. Monitoring Overtraining in Athletes: Recommendations. Sports Med. 1995;20(5):321-327. doi:10.2165/00007256-199520050-00003", "used_for": "Hooper Index（最接近现问卷的标准化工具，4 项 1-7）" },
+    { "n": 3, "citation": "Hooper 问卷现行用法（4 项 1-7：睡眠/压力/疲劳/酸痛）示例：Front Sports Act Living. 2026；SN Compr Exerc Med (Springer) 2024", "used_for": "1-7 量表制式与四维锚点先例" },
+    { "n": 4, "citation": "Kellmann M. Preventing overtraining in athletes in high-intensity sports and stress/recovery monitoring. Scand J Med Sci Sports. 2010;20(Suppl 2):95-102", "used_for": "RESTQ-Sport 恢复-应激框架" },
+    { "n": 5, "citation": "Halson SL. Monitoring Training Load to Understand Fatigue in Athletes. Sports Med. 2014;44(Suppl 2):287-294", "used_for": "疲劳监测综述" },
+    { "n": 6, "citation": "Fullagar HHK, Skorski S, Duffield R, Hammes D, Coutts AJ, Meyer T. Sleep and Athletic Performance. Sports Med. 2015;45(2):161-186. doi:10.1007/s40279-014-0260-0", "used_for": "睡眠与力量表现" },
+    { "n": 7, "citation": "Craven J, McCartney D, Desbrow B, et al. Effects of Acute Sleep Loss on Physical Performance: A Systematic and Meta-Analytical Review. Sports Med. 2022;52:2669-2690", "used_for": "急性睡眠丢失对表现的影响" },
+    { "n": 8, "citation": "Cheung K, Hume P, Maxwell L. Delayed Onset Muscle Soreness: Treatment Strategies and Performance Factors. Sports Med. 2003;33(2):145-164. doi:10.2165/00007256-200333020-00005", "used_for": "DOMS 与训练负荷" },
+    { "n": 9, "citation": "Changes in Perceived Exertion, Well-Being, and Recovery During Training Camp (judo). Front Physiol. 2020;11:931", "used_for": "DOMS 随训练量升降" },
+    { "n": 10, "citation": "Impellizzeri FM, et al. Use of RPE-Based Training Load in Soccer. Med Sci Sports Exerc. 2004;36(6):1042-1047；Internal and External Training Load: 15 Years On. Int J Sports Physiol Perform. 2019;14(9):1334-1338；Session-RPE Method for Training Load Monitoring: Validity. Front Neurosci. 2017;11:612", "used_for": "RPE / session-RPE 自动调节口径" },
+    { "n": 11, "citation": "Helms ER, Cross MR, Brown SR, Storey A, Cronin J, Zourdos MC. Rating of Perceived Exertion as a Method of Volume Autoregulation within a Periodized Program. J Strength Cond Res. 2018;32(6):1627-1636", "used_for": "力量举人群 RPE 容量自动调节" },
+    { "n": 12, "citation": "Training Loads, Wellness and Performance Before and During International Tournaments in Elite Women's Water Polo", "used_for": "5 项 wellness 1-5 电池（疲劳/酸痛/睡眠/压力/情绪）" },
+    { "n": 13, "citation": "Shaping Training Load, Technical-Tactical Behaviour, and Wellness. Sports (MDPI). 2025;13(8):244", "used_for": "wellness 指数汇总表（WBI / Total Perceived Response / Hooper 1-7）" },
+    { "n": 14, "citation": "Training Load and Fatigue Marker Associations with Injury and Illness: A Systematic Review. Sports Med. 2017;47:1577-1600. doi:10.1007/s40279-016-0619-5", "used_for": "含 Killen 等 sleep/food/energy/mood/stress 电池（energy/食欲维出处）" },
+    { "n": 15, "citation": "Methods for Regulating and Monitoring Resistance Training", "used_for": "抗阻训练调节与监测方法" },
+    { "n": 16, "citation": "Relationships between wellness status and perceived training load over a basketball season", "used_for": "DOMS/fatigue 与 session-RPE 相关高于 stress/sleep（不作准备度→容量权重的依据，R3 §3.3）" }
+  ]
+}
