@@ -104,13 +104,13 @@ MUT = [
     # 26) 名单里少一类（特殊器械换了键）—— 应打红 T1
     ("  {k:'manual',  lbl:['特殊器械','MACHINE / MANUAL'], f:['manual','memo'],",
      "  {k:'manual_x', lbl:['特殊器械','MACHINE / MANUAL'], f:['manual','memo'],"),
-    # 27) 打开编辑器不再复位计算器（参数跨行留着）—— 应打红 T2
-    ("  lcReset(); renderLoadCalc();", "  renderLoadCalc();"),
+    # 27) 打开配片计算器不再复位（参数跨次留着）—— 应打红 T2
+    ("  lcReset();\n  showSheet('toolLoadSheet');", "  showSheet('toolLoadSheet');"),
     # 28) 辅助类不再夹 0（能算出负总重）—— 应打红 T7
     ("  if(t.k==='bwassist')return Math.max(0, g('bw')*g('coef')-g('assist'));",
      "  if(t.k==='bwassist')return g('bw')*g('coef')-g('assist');"),
-    # 29) 「填入载荷」顺手写盘 —— 应打红 T9（不保存就不该碰分片）
-    ("function fillLoadFromCalc(){", "function fillLoadFromCalc(){ savePrefsOnly();"),
+    # 29) 计算器输入顺手写盘 —— 应打红 T9（只该算，不该碰分片）
+    ("function readLoadCalc(){", "function readLoadCalc(){ savePrefsOnly();"),
     # 30) 配平无视库存、永远按全片表算 —— 应打红 T10（库存归场地后靶串换成 Resolver 那条腿）
     ("  const set=(invOverride&&typeof invOverride==='object')?stockPlates(invOverride):plateSet();",
      "  const set=PLATES;"),

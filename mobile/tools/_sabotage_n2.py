@@ -134,8 +134,8 @@ TPL = os.path.join(HERE, "template.html")
 
 # (文件, 原文片段, 故障片段, 应该红在哪)
 FAULTS = [
-    (TPL, "'e1rmLog','advAuto','advAudit','gearDefaults','migrateBackup','migrateReport','gearKit','teleOn','lcOpen','nick'];",
-     "'e1rmLog','advAudit','gearDefaults','migrateBackup','migrateReport','gearKit','teleOn','lcOpen','nick'];",
+    (TPL, "'e1rmLog','advAuto','advAudit','gearProfile','migrateBackup','migrateReport','gearKit','teleOn','lcOpen','nick'];",
+     "'e1rmLog','advAudit','gearProfile','migrateBackup','migrateReport','gearKit','teleOn','lcOpen','nick'];",
      "F1 认领名单少一个键 → LD1 红（S32 全绿属预期）"),
     (TPL, "archErr=L(pair[0],pair[1]);",
      "archErr='';",

@@ -70,8 +70,8 @@ TPL = os.path.join(HERE, "template.html")
 
 # (文件, 原文片段, 故障片段, 应该红在哪)
 FAULTS = [
-    (TPL, "const PREF_KEYS=['lang','theme','timerCfg','plateCfg','venues','activeVenueId','teleFields','favProgs','advAuto','gearKit','teleOn','lcOpen','nick'];",
-     "const PREF_KEYS=['lang','theme','timerCfg','plateCfg','venues','activeVenueId','teleFields','favProgs','advTier','gearKit','teleOn','lcOpen','nick'];",
+    (TPL, "const PREF_KEYS=['lang','theme','timerCfg','plateCfg','venues','activeVenueId','teleFields','favProgs','advAuto','gearKit','teleOn','lcOpen','gearProfile','nick'];",
+     "const PREF_KEYS=['lang','theme','timerCfg','plateCfg','venues','activeVenueId','teleFields','favProgs','advTier','gearKit','teleOn','lcOpen','gearProfile','nick'];",
      "F1 档位键改名 → S30 红 ①（advAuto 不在 PREF_KEYS，档位不再持久化）+ v3v M10 红（键位断言认这把键）"
      "+ v3v P1 红（档位段入口同样钉这把键在 prefs 名单）+ S23 红（m11 家的首条与本条同串，"
      "注入态里它那把靶当场找不到 —— 两家盯同一行的不同承诺，这条连带是对的）"),

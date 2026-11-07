@@ -462,7 +462,7 @@ def library_payload(path) -> dict:
 
 if __name__ == "__main__":
     import sys
-    p = sys.argv[1] if len(sys.argv) > 1 else "../../data/01_工作簿/RPL_ExDark_v0.15_ProMax.xlsx"
+    p = sys.argv[1] if len(sys.argv) > 1 else "../../data/01_工作簿/RPL_ExDark_v0.70_Plan_2026-11-09.xlsx"
     gs = read_groups(p)
     tp = learn_templates(p, gs)
     print("分组:", len(gs), "动作:", sum(len(g["acts"]) for g in gs))

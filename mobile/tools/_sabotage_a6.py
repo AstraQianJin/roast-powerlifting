@@ -36,7 +36,7 @@ FAULTS = [
      "S2 多出 INTERNET 权限"),
     (GRADLE, "versionName = '{{VER}}'", "versionName = '{{VER}}-Pro'",
      "S3 版本串掺了标签（连带 S26：发版预检同读这一行；连带 S23：_sabotage_r1 从 gradle 现算靶子，掺标签后当场算不出）"),
-    (ASSET, "const SCHEMA_STAMP=8;", "const SCHEMA_STAMP=8; // 手一下成品", "S5 成品被手改"),
+    (ASSET, "const SCHEMA_STAMP=9;", "const SCHEMA_STAMP=9; // 手一下成品", "S5 成品被手改"),
     # v0.13：CSV 协议的对账端从 desktop/server.py 换成契约的 record_keys_frozen，
     # 故障也相应打在成品上——同一处改动同时该让 S5（成品≠重生成）和 S7（成品列序≠契约）变红。
     (ASSET, "movement,load_kg,rx_text,target_rpe", "movement,rx_text,load_kg,target_rpe",

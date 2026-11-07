@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>v0.70 器械图形语义 · 候选</title>
+<style>
+/* 预览页令牌副本：只用于候选图评审，正式令牌与 class 由设计稿 D 节列出，落地时进 template.html。
+   主题名单与主项目一致：dark / light / nature(Extra Dark)。 */
+html[data-theme="dark"]{
+  --bg:#07090D;--card:#141924;--ink:#F2F5F9;--ink2:#AEB9C7;--dim:#738092;--mut:#8B97A8;
+  --line:rgba(255,255,255,.085);--line2:rgba(255,255,255,.05);
+  --edge:rgba(255,255,255,.16);--edge2:rgba(255,255,255,.28);--inset:rgba(0,0,0,.42);
+  --gold:#E0A83A;--gold-soft:rgba(224,168,58,.12);--gold-line:rgba(224,168,58,.26);
+  --warn:#F0C060;
+  --gear-idle:#2B3442;--gear-metal:#59677C;--gear-cut:rgba(255,255,255,.18);
+}
+html[data-theme="light"]{
+  --bg:#F2F5F8;--card:#FFFFFF;--ink:#0F1720;--ink2:#38465A;--dim:#5E6D82;--mut:#54637A;
+  --line:rgba(15,23,42,.11);--line2:rgba(15,23,42,.065);
+  --edge:rgba(15,23,42,.22);--edge2:rgba(15,23,42,.34);--inset:rgba(15,23,42,.045);
+  --gold:#8A5F0B;--gold-soft:rgba(138,95,11,.09);--gold-line:rgba(138,95,11,.24);
+  --warn:#9C4A00;
+  --gear-idle:#C3CDDA;--gear-metal:#7A8797;--gear-cut:rgba(15,23,42,.14);
+}
+html[data-theme="nature"]{
+  --bg:#F4F1E9;--card:#FBF9F4;--ink:#241F17;--ink2:#41392C;--dim:#6E6555;--mut:#5C5344;
+  --line:rgba(62,52,34,.14);--line2:rgba(62,52,34,.08);
+  --edge:rgba(62,52,34,.20);--edge2:rgba(62,52,34,.30);--inset:rgba(62,52,34,.05);
+  --gold:#7A5A16;--gold-soft:rgba(122,90,22,.10);--gold-line:rgba(122,90,22,.26);
+  --warn:#8A4A12;
+  --gear-idle:#CDBFAB;--gear-metal:#7A6F5C;--gear-cut:rgba(62,52,34,.16);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:12px/1.45 "Roboto","Noto Sans SC","PingFang SC",sans-serif;
+  padding:10px 10px 18px;overflow-x:hidden}
+header{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 10px;
+  padding-bottom:7px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:13px;letter-spacing:.06em}
+.meta{font-family:monospace;font-size:10px;color:var(--dim)}
+.sec{margin:0 0 14px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.sec-h{display:flex;flex-direction:column;gap:2px;margin-bottom:7px}
+.sec-h b{font-size:11.5px;letter-spacing:.04em}
+.sec-h span{font-size:9.5px;color:var(--dim);line-height:1.35}
+.cands{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.cand{min-width:0;border:1px solid var(--line2);border-radius:8px;padding:6px 5px;background:var(--inset)}
+.cand-h{font-family:monospace;font-size:9px;color:var(--gold);letter-spacing:.05em;margin-bottom:4px}
+.stage{display:flex;align-items:flex-end;justify-content:center;gap:2px;min-height:106px;padding:2px 0}
+.stage svg{display:block;max-width:100%;height:auto}
+.mini{display:flex;flex-direction:column;align-items:center;gap:2px}
+.cap{font-family:monospace;font-size:8px;color:var(--dim);white-space:nowrap}
+.cand-f{font-size:8.5px;color:var(--dim);line-height:1.35;margin-top:4px}
+/* ---- 候选图形共用的语义 class ---- */
+.g-frame{fill:var(--inset);stroke:var(--edge);stroke-width:1.2}
+.g-slot{stroke:var(--line2);stroke-width:2}
+.g-eng{fill:var(--gold)}
+.g-idle{fill:var(--gear-idle);stroke:var(--line2);stroke-width:.8}
+.g-hole{fill:var(--bg)}
+.g-pin{fill:var(--gold);stroke:var(--bg);stroke-width:1.4}
+.g-rail{stroke:var(--dim);stroke-width:1.8;opacity:.75}
+.g-metal{fill:var(--gear-metal);stroke:var(--edge2);stroke-width:.9}
+.g-metal2{fill:var(--mut);stroke:var(--edge);stroke-width:.8}
+.g-cut{fill:var(--gear-cut)}
+.g-plate{fill:var(--gear-metal);stroke:var(--edge2);stroke-width:1}
+.g-plate2{fill:var(--mut);stroke:var(--edge2);stroke-width:1}
+.g-plate-hole{fill:var(--bg);stroke:var(--edge);stroke-width:.8}
+.g-rem{fill:none;stroke:var(--dim);stroke-width:1.2;stroke-dasharray:3 2;opacity:.85}
+.g-band{fill:none;stroke:var(--warn);stroke-width:1.4;stroke-dasharray:4 2}
+.g-fig{fill:none;stroke:var(--ink);stroke-width:2.4;stroke-linecap:round}
+.g-fig-dot{fill:var(--ink)}
+.g-shell{fill:none;stroke:var(--dim);stroke-width:1.6;stroke-linecap:round}
+.g-unit{fill:none;stroke:var(--gear-metal);stroke-width:2}
+.g-unit-fill{fill:var(--gear-cut);stroke:var(--gear-metal);stroke-width:1.6}
+/* 产品尺寸对照：CSS 覆盖 SVG 属性宽，只改显示尺寸，不改几何 */
+.sz{display:grid;grid-template-columns:34px 1fr 1fr;align-items:center;gap:6px;
+  padding:5px 0;border-bottom:1px dashed var(--line2)}
+.sz:last-child{border-bottom:0}
+.sz-h{font-family:monospace;font-size:8px;color:var(--dim)}
+.sz40 svg{width:40px;height:auto}
+.sz48 svg{width:48px;height:auto}
+</style>
+</head>
+<body>
+<header><h1>v0.70 器械图形语义 · 候选 A/B</h1><span class="meta" id="meta"></span></header>
+<main id="sheet"></main>
+<script>
+var S=[];
+function esc(s){return String(s==null?'':s);}
+
+/* ---------- stack: 配重块自上而下叠，销插进第 pin 片的下沿；销越往下 = 实心段越长 = 越重 ---------- */
+function stackSVG(scheme,pin,n,showRail){
+  var top=24,ph=6,gap=1,x0=40,w=52;
+  var body='';
+  for(var i=0;i<n;i++){
+    var y=top+i*(ph+gap),on=i<=pin;
+    if(scheme==='A'){
+      body+='<rect x="44" y="'+y+'" width="44" height="'+ph+'" rx="1.5" class="'+(on?'g-eng':'g-idle')+'"/>';
+    }else{
+      body+='<rect x="44" y="'+y+'" width="44" height="'+ph+'" rx="1.5" class="'+(on?'g-eng':'g-idle')+'"/>'
+        +'<circle cx="66" cy="'+(y+ph/2)+'" r="2.6" class="g-hole"/>';
+    }
+  }
+  var pinY=top+pin*(ph+gap)+ph;
+  var pinMark=scheme==='A'
+    ? '<rect x="88" y="'+(pinY-1.6)+'" width="15" height="3.2" rx="1" class="g-pin"/>'
+      +'<circle cx="105" cy="'+pinY+'" r="4" class="g-pin"/>'
+    : '<rect x="47" y="'+(pinY-2)+'" width="38" height="4" rx="1.5" class="g-pin"/>'
+      +'<ellipse cx="66" cy="'+pinY+'" rx="3.4" ry="2.6" class="g-pin"/>';
+  var rail=showRail
+    ? '<line x1="27" y1="26" x2="27" y2="86" class="g-rail"/>'
+      +'<path d="M21 82 L27 94 L33 82" class="g-rail"/>'
+    : '';
+  return '<svg viewBox="0 0 132 104" width="96" height="76" role="img" aria-label="weight stack">'
+    +'<circle cx="66" cy="10" r="4.5" fill="none" stroke="var(--dim)" stroke-width="1.4"/>'
+    +'<line x1="66" y1="14.5" x2="66" y2="20" stroke="var(--dim)" stroke-width="1.2"/>'
+    +(scheme==='B'?'<line x1="66" y1="20" x2="66" y2="96" class="g-slot"/>':'')
+    +'<rect x="'+x0+'" y="20" width="'+w+'" height="80" rx="5" class="g-frame"/>'
+    +rail+body+pinMark+'</svg>';
+}
+
+/* ---------- plate: 机体两侧水平挂片轴；片套在轴上，靠机体一侧直径大、外侧递减 ---------- */
+function plateDisc(cx,cy,r,cls){
+  return '<ellipse cx="'+cx+'" cy="'+cy+'" rx="4.2" ry="'+r+'" class="'+(cls||'g-plate')+'"/>'
+    +'<ellipse cx="'+cx+'" cy="'+cy+'" rx="1.7" ry="'+Math.max(2,r*0.45)+'" class="g-plate-hole"/>';
+}
+function plateHorn(cxBody,dir,y,radii,empty,rem){
+  var cx=[];radii.forEach(function(r,i){cx.push(cxBody+dir*(7+i*6));});
+  var tip=cxBody+dir*(9+radii.length*6);
+  var shaft='<rect x="'+Math.min(cxBody,tip)+'" y="'+(y-2.5)+'" width="'+Math.abs(cxBody-tip)+'" height="5" rx="2.5" class="g-metal"/>'
+    +'<rect x="'+(dir>0?tip-1:tip-5)+'" y="'+(y-6)+'" width="5" height="12" rx="2" class="g-metal2"/>';
+  var discs='';
+  if(empty){ discs='<ellipse cx="'+cx[0]+'" cy="'+y+'" rx="4.2" ry="'+radii[0]+'" class="g-rem"/>'; }
+  else { radii.forEach(function(r,i){ discs+=plateDisc(cx[i],y,r); }); }
+  if(rem&&!empty) discs+='<ellipse cx="'+(tip+dir*7)+'" cy="'+y+'" rx="4.2" ry="'+Math.max(6,radii[radii.length-1]*0.7)+'" class="g-rem"/>';
+  return shaft+discs;
+}
+function plateASVG(empty,rem){
+  var body='<rect x="62" y="18" width="26" height="72" rx="7" class="g-metal"/>'
+    +'<rect x="66" y="54" width="18" height="7" rx="3.5" class="g-cut"/>'
+    +'<rect x="38" y="92" width="74" height="3" rx="1.5" class="g-metal2"/>';
+  var left=plateHorn(62,-1,44,[16,12,9],empty,rem);
+  var right=plateHorn(88,1,44,[16,12,9],empty,rem);
+  return '<svg viewBox="0 0 150 100" width="118" height="79" role="img" aria-label="plate loaded machine">'
+    +body+left+right+'</svg>';
+}
+function plateBSVG(empty,rem){
+  var body='<rect x="104" y="14" width="40" height="78" rx="8" class="g-metal"/>'
+    +'<rect x="110" y="30" width="18" height="34" rx="5" class="g-cut"/>';
+  var horn='<path d="M104 47 L34 39 L34 46 L104 53 Z" class="g-metal"/>'
+    +'<circle cx="34" cy="42.5" r="4.2" class="g-metal2"/>';
+  var discs='';
+  if(empty){
+    discs='<ellipse cx="84" cy="45.6" rx="4.2" ry="20" class="g-rem"/>';
+  }else{
+    [20,15,11,7].forEach(function(r,i){ discs+=plateDisc(104-(26+i*13),45.4-i*0.7,r,'g-plate2'); });
+  }
+  if(rem&&!empty) discs+='<ellipse cx="30" cy="42" rx="4.2" ry="8" class="g-rem"/>';
+  return '<svg viewBox="0 0 150 100" width="118" height="79" role="img" aria-label="plate loaded horn">'
+    +body+horn+discs+'</svg>';
+}
+
+/* ---------- dumbbell: 一头一枚，柄明显细于头；A 正视，B 斜置 ---------- */
+function dumbHead(x,y,w,h,rings,tilt){
+  var s='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="3.5" class="g-metal"/>';
+  for(var i=1;i<=rings;i++) s+='<rect x="'+(x+i*(w/(rings+1)))+'" y="'+(y+2)+'" width="1.6" height="'+(h-4)+'" class="g-cut"/>';
+  return s;
+}
+function dumbASVG(sides){
+  var one=dumbHead(10,12,18,34,2)+'<rect x="28" y="27" width="44" height="6" rx="3" class="g-metal2"/>';
+  for(var i=0;i<6;i++) one+='<rect x="'+(32+i*6)+'" y="27.5" width="1.6" height="5" class="g-cut"/>';
+  one+=dumbHead(72,12,18,34,2);
+  var g='<g>'+one+'</g>';
+  var second=sides>1
+    ? '<g transform="translate(27,1) scale(.55)">'+one+'</g><g transform="translate(27,28) scale(.55)">'+one+'</g>'
+    : g;
+  return '<svg viewBox="0 0 120 60" width="104" height="52" role="img" aria-label="dumbbell">'+second+'</svg>';
+}
+function dumbBSVG(sides){
+  var one='<g transform="rotate(-16 60 30)">'
+    +dumbHead(8,14,16,32,3)+'<rect x="24" y="26.5" width="48" height="7" rx="3" class="g-metal2"/>';
+  for(var i=0;i<6;i++) one+='<rect x="'+(28+i*6.8)+'" y="27" width="1.6" height="6" class="g-cut"/>';
+  one+=dumbHead(76,14,16,32,3)+'</g>';
+  var second=sides>1
+    ? '<g transform="translate(27,1) scale(.55)">'+one+'</g><g transform="translate(27,28) scale(.55)">'+one+'</g>'
+    : one;
+  return '<svg viewBox="0 0 120 60" width="104" height="52" role="img" aria-label="dumbbell">'+second+'</svg>';
+}
+
+/* ---------- bw: 人形 + 单杠；加重=腰带+片，辅助=弹力带；绝不出现横杠穿片 ---------- */
+function bwFIG(uprights,barY,baseY){
+  var s='';
+  if(uprights){
+    s+='<path d="M8 '+(baseY)+' L8 '+(barY)+' M46 '+(baseY)+' L46 '+(barY)+' M4 '+barY+' L50 '+barY+'" class="g-shell"/>'
+      +'<line x1="2" y1="'+(baseY+2)+'" x2="52" y2="'+(baseY+2)+'" class="g-shell"/>';
+  }else{
+    s+='<path d="M8 '+barY+' L44 '+barY+'" class="g-shell"/>';
+  }
+  s+='<circle cx="26" cy="'+(barY+6)+'" r="4" class="g-fig-dot"/>'
+    +'<path d="M26 '+(barY+10)+' L26 '+(barY+30)+' M26 '+(barY+13)+' L14 '+barY+' M26 '+(barY+13)+' L38 '+barY
+    +' M26 '+(barY+30)+' L19 '+(barY+50)+' M26 '+(barY+30)+' L33 '+(barY+50)+'" class="g-fig"/>';
+  return s;
+}
+function bwPanel(mode,uprights){
+  var barY=14,baseY=78;
+  var s=bwFIG(uprights,barY,baseY);
+  if(mode==='plus') s+='<rect x="18" y="'+(barY+27)+'" width="16" height="4" rx="1.5" class="g-pin"/>'
+    +'<rect x="21" y="'+(barY+34)+'" width="10" height="7" rx="1.5" class="g-eng"/>';
+  if(mode==='assist') s+='<path d="M9 '+baseY+' C14 '+(barY+40)+' 38 '+(barY+40)+' 43 '+baseY+'" class="g-band"/>';
+  return '<svg viewBox="0 0 56 88" width="42" height="66" role="img" aria-label="bodyweight '+mode+'">'+s+'</svg>';
+}
+function bwRow(uprights){
+  return '<div class="mini">'+bwPanel('bw',uprights)+'<span class="cap">自重</span></div>'
+    +'<div class="mini">'+bwPanel('plus',uprights)+'<span class="cap">加重</span></div>'
+    +'<div class="mini">'+bwPanel('assist',uprights)+'<span class="cap">辅助</span></div>';
+}
+
+/* ---------- special: 壶铃/药球/战绳/弹力带四形 + 计数（A 无框，B 带格） ---------- */
+function unitSVG(tag,frame){
+  var s='';
+  if(tag==='kb'){
+    s+='<circle cx="16" cy="22" r="8.6" class="g-unit-fill"/>'
+      +'<path d="M10 16 C10 6 22 6 22 16" class="g-unit" stroke-width="2.8"/>'
+      +'<path d="M12 30 C14 28 18 28 20 30" class="g-unit" stroke-width="1" opacity=".5"/>';
+  }else if(tag==='mb'){
+    s+='<circle cx="16" cy="21" r="9" class="g-unit-fill"/>'
+      +'<path d="M8 15 C12 18 20 18 24 15 M8 27 C12 24 20 24 24 27" class="g-unit" opacity=".5"/>'
+      +'<path d="M16 12 L16 30" class="g-unit" opacity=".35"/>';
+  }else if(tag==='rope'){
+    s+='<path d="M9 5 C16 11 10 17 15 23 C19 28 12 31 12 36" class="g-unit" stroke-width="2.4"/>'
+      +'<path d="M15 5 C22 11 16 17 21 23 C25 28 18 31 18 36" class="g-unit" stroke-width="2.4" opacity=".75"/>';
+  }else{
+    s+='<ellipse cx="16" cy="21" rx="11" ry="6" transform="rotate(-16 16 21)" class="g-unit" stroke-width="3"/>';
+  }
+  if(frame) s+='<rect x="2" y="6" width="28" height="30" rx="5" fill="none" stroke="var(--line)" stroke-width="1"/>';
+  return '<svg viewBox="0 0 32 40" width="30" height="38" role="img" aria-label="special '+tag+'">'+s+'</svg>';
+}
+function specialRow(tags,frame){
+  return tags.map(function(t){return '<div class="mini">'+unitSVG(t,frame)+'<span class="cap">'+t+'</span></div>';}).join('');
+}
+
+/* ---------- barbell: A 双侧对称（推荐），B 单侧片条（现状） ---------- */
+function barASSVG(){
+  var s='<rect x="6" y="25" width="138" height="3.4" rx="1.7" class="g-metal2"/>'
+    +'<rect x="30" y="24" width="22" height="5.4" rx="2" class="g-metal"/>'
+    +'<rect x="98" y="24" width="22" height="5.4" rx="2" class="g-metal"/>';
+  /* 由内向外：大片贴套管/卡扣，小片在外侧；卡扣落在片堆外侧端。 */
+  [[48,20],[42,15],[36,10],[102,20],[108,15],[114,10]].forEach(function(p){
+    s+='<rect x="'+p[0]+'" y="'+(27-p[1]/2)+'" width="4" height="'+p[1]+'" rx="1.5" class="g-plate"/>';
+  });
+  s+='<rect x="29" y="21" width="3" height="16" rx="1" class="g-metal2"/>'
+    +'<rect x="118" y="21" width="3" height="16" rx="1" class="g-metal2"/>';
+  return '<svg viewBox="0 0 150 54" width="118" height="42" role="img" aria-label="barbell">'+s+'</svg>';
+}
+function barBSVG(){
+  var s='<rect x="8" y="25" width="134" height="3.4" rx="1.7" class="g-metal2"/>'
+    +'<rect x="36" y="24" width="26" height="5.4" rx="2" class="g-metal"/>';
+  [[40,20],[46,15],[52,11],[58,7]].forEach(function(p){
+    s+='<rect x="'+p[0]+'" y="'+(27-p[1]/2)+'" width="4" height="'+p[1]+'" rx="1.5" class="g-plate"/>';
+  });
+  s+='<rect x="62" y="21" width="3" height="16" rx="1" class="g-metal2"/>';
+  return '<svg viewBox="0 0 150 54" width="118" height="42" role="img" aria-label="barbell">'+s+'</svg>';
+}
+
+/* ---------- 组装 ---------- */
+function cand(h,stage,f){ return '<div class="cand"><div class="cand-h">'+h+'</div><div class="stage">'+stage+'</div><div class="cand-f">'+f+'</div></div>'; }
+function sec(kind,title,desc,a,b){
+  return '<section class="sec" data-kind="'+kind+'"><div class="sec-h"><b>'+title+'</b><span>'+desc+'</span></div>'
+    +'<div class="cands">'+a+b+'</div></section>';
+}
+
+var stackStage=function(scheme){
+  return [2,5,8].map(function(p){
+    return '<div class="mini">'+stackSVG(scheme,p,10,scheme==='A')+'<span class="cap">pin '+p+'</span></div>';
+  }).join('');
+};
+S.push(sec('stack','stack · 插片（配重块）',
+  '真机：块自下而上叠，缆绳在上；销插进某片侧面，销上方（含销片）的块才被带起。销越往下 = 实心段越长 = 越重。',
+  cand('A · 侧插销 + 向下标尺',stackStage('A'),'帧 ≥8 片位；实心片数 == pin+1；侧销贴最低实心片下沿；左侧向下箭头只做方向提示。'),
+  cand('B · 正面插槽 + 片孔',stackStage('B'),'片心留孔 = 插槽真实位置；销画成横贯正面的亮条；不画左右两根竖杠。')));
+
+S.push(sec('plate','plate · 挂片（含悍马）',
+  '真机：机体两侧伸出水平挂片轴（horn），片套在轴上；靠机体一侧直径大、外侧小；空轴也必须画出来。',
+  cand('A · 正视双侧轴',plateASVG(false,false),'机体居中，左右各一轴，3 片/轴，片径 19→15→11 递减；空轴另见图。'),
+  cand('B · 单侧特写轴',plateBSVG(false,false),'轴斜向出机体，4 片，片径 22→17→12→8；端帽+轴身可见，读作挂片轴而非竖柱。')));
+S.push('<section class="sec" data-kind="plate-states"><div class="sec-h"><b>plate · 边界态（必须都画得出）</b>'
+  +'<span>“每位无片”不许再出文字；12kg 这类凑不出整片的量用虚线圈表达。</span></div><div class="cands">'
+  +cand('空轴（0 片）',plateASVG(true,false),'轴、端帽、轴身仍在；末端虚线圈 = 有标称重量但无整片。')
+  +cand('余量（不足一片）',plateBSVG(false,true),'在外侧加一圈虚线环，表示“差一点但没整片”，不写字。')
+  +'</div></section>');
+
+S.push(sec('dumbbell','dumbbell · 哑铃','真机：一根柄两头各一叠头片，柄明显细于头；成对时是两只。',
+  cand('A · 正视一对',dumbASVG(2),'头 18×34、柄 44×6；头片两道压缝；成对 = 两只独立图形上下并排，全不透明。'),
+  cand('B · 斜置 3/4',dumbBSVG(2),'整体 -16°；头片三道压缝；柄上短竖线做滚花，不写重量。')));
+
+S.push(sec('bw','bw · 自重 / 辅助','真机：单杠或引体架；加重 = 腰带挂片，辅助 = 弹力带/配重。关键是不能读成杠铃。',
+  cand('A · 人形 + 单杠',bwRow(false),'三态同屏：自重 / 加重（腰带+片）/ 辅助（虚线带）；全程无杠铃片穿杆。'),
+  cand('B · 引体架轮廓',bwRow(true),'两根立柱 + 顶梁 + 底座；人形在架内；辅助带从底座连到膝。')));
+
+S.push(sec('special','special · 特殊器械','真机：壶铃/药球/战绳/弹力带各有轮廓；数量用重复单件表达，不写 ×N。',
+  cand('A · 无框单件',specialRow(['kb','mb','rope','band'],false),'四形各自可辨：壶铃有提手弧、药球有缝线、战绳两根波线、弹力带闭环。'),
+  cand('B · 计数格',specialRow(['kb','kb','kb'],true),'每件一格 = 数量；格只是容器，不承担器械身份。')));
+
+S.push(sec('barbell','barbell · 杠铃（对照，不在本次投诉内）','真机：横杠 + 两端套管 + 片 + 卡扣；对称是默认读法。',
+  cand('A · 双侧对称（推荐）',barASSVG(),'左右同片数、同高度；大片贴套管，卡扣在片堆外侧；中间可见横杠。'),
+  cand('B · 单侧片条（现状）',barBSVG(),'只画一侧；仍能读，但“另一端有什么”全靠记忆。')));
+
+/* 产品尺寸对照：落地时图形多数出现在 40/48px 档 */
+var SZP=[['stack',stackSVG('A',5,10,true)],['plate',plateASVG(false,false)],['dumbbell',dumbASVG(2)],
+  ['bw',bwPanel('bw',false)],['special',unitSVG('kb',false)],['barbell',barASSVG()]];
+S.push('<section class="sec" data-kind="size"><div class="sec-h"><b>产品尺寸对照 · 40 / 48 px（各取 A 方案）</b>'
+  +'<span>评审页并排图会掩盖小尺寸细节，这一栏按落地尺寸看：还能不能认出来。</span></div>'
+  +SZP.map(function(p){return '<div class="sz"><span class="sz-h">'+p[0]+'</span>'
+    +'<div class="sz40">'+p[1]+'</div><div class="sz48">'+p[1]+'</div></div>';}).join('')+'</section>');
+
+document.getElementById('sheet').innerHTML=S.join('');
+var th=document.documentElement.getAttribute('data-theme');
+document.getElementById('meta').textContent=innerWidth+' px · '+th+' · 候选稿 '+new Date().toISOString().slice(0,10);
+</script>
+</body>
+</html>

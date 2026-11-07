@@ -57,11 +57,11 @@ TPL = os.path.join(HERE, "template.html")
 
 # (文件, 原文片段, 故障片段, 应该红在哪)
 FAULTS = [
-    (TPL, "'advAuto','gearKit','teleOn','lcOpen','nick'];",
-     "'advAuto','gearKitX','teleOn','lcOpen','nick'];",
+    (TPL, "'advAuto','gearKit','teleOn','lcOpen','gearProfile','nick'];",
+     "'advAuto','gearKitX','teleOn','lcOpen','gearProfile','nick'];",
      "F1 prefs 名单里的 gearKit 键名漂了 → S45 红（不在 prefs 片名单）+ v3v M10 红（键位名单）+ v3v EQ4 红（分片里没有装备台账）+ S23 红（m11 家首条与本条同串，属正确连带）"),
-    (TPL, "if(!Array.isArray(state.gearKit)) state.gearKit=[];\n  if(!state.gearDefaults",
-     "if(!state.gearDefaults",
+    (TPL, "  if(!Array.isArray(state.gearKit)) state.gearKit=[];\n  /* 器械档案",
+     "  /* 器械档案",
      "F2 ensureShape 的 gearKit 回填整行删掉 → S45 红（回填/防御不是恰好两处）+ v3v EQ1 红（旧存档删键后 ensureShape 不再补回）"),
     (TPL, "const WEAR_CHIP={fn:'wk-fn',mw:'wk-mw',ft:'wk-ft',ww:'wk-ww',bs:'wk-bs'};",
      "const WEAR_CHIP={fn:'wk-fn',mw:'wk-mw',ft:'wk-ft',ww:'wk-ww',bs:'wk-bad'};",

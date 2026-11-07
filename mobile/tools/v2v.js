@@ -48,10 +48,14 @@ let chrome = null, profDir = null;
     var dayAt=function(i){ return (dd&&dd[i])?dd[i]:null; };
     T('Day 定义至少有 A/B/C/D 四个', !!(dayAt(0)&&dayAt(1)&&dayAt(2)&&dayAt(3)), dd?dd.length:0);
     var dB=dayAt(1), dC=dayAt(2), dD=dayAt(3);
-    T('Day B 中文名 = F2 冻结题名（卧推日）', !!dB && dB.titleZh==='卧推日', dB&&dB.titleZh);
-    T('Day C 中文名 = F2 冻结题名（硬拉深蹲日）', !!dC && dC.titleZh==='硬拉深蹲日', dC&&dC.titleZh);
+    T('Day B 中文名取自计划 Days.title_zh（非旧内置名）',
+      !!dB && dB.titleZh==='卧推主项 · 实力推 · 引体 · 双杠 · 节奏卧推 · 侧平举/面拉', dB&&dB.titleZh);
+    T('Day C 中文名取自计划 Days.title_zh（非旧内置名）',
+      !!dC && dC.titleZh==='硬拉主项 · 节奏深蹲 3×3 · 杠铃划船 · 举腿', dC&&dC.titleZh);
     T('constraints 用 upperOnly 且旧键已清', !!dd && dd.length>0 && dd.every(function(x){return !!x.constraints && typeof x.constraints.upperOnly==='boolean' && !x.constraints.focusBenchOnly;}));
-    T('Day D 仍禁 Heavy SBD', !!dD && !!dD.constraints && dD.constraints.forbidHeavySbd===true, dD&&dD.constraints&&dD.constraints.forbidHeavySbd);
+    T('Day D 约束位随计划 Days.forbid_heavy_sbd（本计划为 false）',
+      !!dD && !!dD.constraints && dD.constraints.forbidHeavySbd===false,
+      dD&&dD.constraints&&dD.constraints.forbidHeavySbd);
     SECT='V02-04'; // V02-04 配置页
     var sw=document.getElementById('stWeeks');
     T('总周数输入为 readonly', sw && sw.hasAttribute('readonly'));

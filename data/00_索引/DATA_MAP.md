@@ -11,11 +11,11 @@
 
 | 目录 | 职责 | 被代码消费 | 入仓策略 |
 |---|---|---|---|
-| `01_工作簿/` | 三个 xlsx：权威源 + 两份参考库 | **是**（`mobile/tools/gen_seed.py`） | 全部跟踪 |
+| `01_工作簿/` | 四份 xlsx：现行计划源 + 旧工作簿（历史，原样保留）+ 两份参考库 | **是**（`mobile/tools/gen_seed.py` 读前三份里的计划源与参考库） | 全部跟踪 |
 | `00_索引/` | 本文件 | 否 | 跟踪（只此一份） |
 | `03_规范/` | 数据层机器可读契约 + 校验脚本 | 否（`validate_data.py` 是独立探针） | 跟踪 |
 | `04_生成物/` | manifest / 索引 CSV / checksums / 报告 | 否 | 跟踪，**禁止手改**（改源后重跑生成脚本） |
-| `05_归档/` | 重复文件、旧索引、工作簿备份 | 否 | 旧索引与备份跟踪；`01_重复文件/` 不跟踪（本机留档，不删） |
+| `05_归档/` | 旧索引、工作簿备份（`01_重复文件/` 已移出项目，本机留档） | 否 | 旧索引与备份跟踪；重复文件不再入项目 |
 
 **参考库不在 `data/` 里了（v0.31）**：原先的 `02_参考资料/` 整体搬到仓库根的 `ref/`，全部不入仓。
 理由是它**从来不是种子链的输入**——`gen_seed.py` 只读 `01_工作簿/` 那三份表，书的唯一作用是
@@ -70,15 +70,18 @@ git ls-files --others --exclude-standard data | wc -l    # 期望 0
 
 | 事实 | 唯一主人 | 消费者 | 派生镜像（禁止回灌） |
 |---|---|---|---|
-| 运动员画像、1RM、目标、恢复、开始日期 | `01_工作簿/RPL_ExDark_v0.15_ProMax.xlsx` → `信息` | `gen_seed.py`、App 设置页 | `总览`、`追踪`、`信息` 的日历时间线 |
-| 周期块、阶段、T1/T2/TOP 百分比、RPE 基线 | 同上 → `周期`（`E`=T1%、`F`=T2%、`G`=RPE、`J`=TOP%，命名区域 `PERIOD_T1` / `PERIOD_T2` / `PERIOD_RPE` / `PERIOD_TOP`） | `gen_seed.py` | `信息` 的 W0–W16 时间线、`总览` |
-| 内置 8 周 2 Block 模板处方（周/日/动作/负荷/组次） | 同上 → `W1`–`W8`（`W9`–`W16` 隐藏归档，仍在簿内，按「数据不可破」不删） | `gen_seed.py` | `Exe`、`总览` |
-| 动作分类与动作组 | 同上 → `动作库` + `映射` | `gen_seed.py` → `seed.lib` | App 动作库页 |
-| 做组模式与组次结构 | 同上 → `协议` | `gen_seed.py` → `seed.proto` | `W` 表的 `PROTOCOL` 列 |
-| 装甲/恢复项定义与周打卡 | 同上 → `W1`–`W16` 的 AUX 区 | `gen_seed.py` → `seed.aux` | App 装甲页 |
+| 运动员画像、1RM、目标、恢复、开始日期 | `01_工作簿/RPL_ExDark_v0.70_Plan_2026-11-09.xlsx` → `Profile` | `gen_seed.py`、App 设置页 | App 内存账本（导出即成新计划） |
+| 周期块、阶段、T1/T2/TOP 百分比、RPE 基线 | 同上 → `Blocks` | `gen_seed.py` | App 结构页 |
+| 现行 8 周计划的周/日/动作/负荷/组次/处方原文 | 同上 → `Workouts` + `Days`（`sets` 列是组数的唯一来源，`rx` 是处方原文） | `gen_seed.py` → `seed.weeks` | App 训练页 |
+| 周恢复与体重曲线 | 同上 → `Telemetry` | `gen_seed.py` | App 遥测页 |
+| 动作分类与动作组 | 同上 → `动作库` + `映射`（建簿时从旧簿 values-only 复制） | `gen_seed.py` → `seed.lib` | App 动作库页 |
+| 做组模式与组次结构 | 同上 → `协议`（同上复制） | `gen_seed.py` → `seed.proto` | App 处方回落参考 |
+| GPP 菜单与自定义项 | 同上 → `GPP` + 契约 `RPL-GPP-v1.json` | `gen_seed.py` → `seed.gpp` | App GPP 页 |
+| 装备 / 段位参考数据 | 同上 → `Gear` + `Level` | `gen_seed.py` | App 装备/段位页 |
+| 旧版画像与 W 行模板（历史，不再驱动种子） | `01_工作簿/RPL_ExDark_v0.15_ProMax.xlsx` → `信息` `周期` `W1`–`W16` | 无（仅留档与对账） | 旧 `总览`/`Exe` |
 | 经典计划与变体参考 | `01_工作簿/RPL_Program_Library_v0.15.xlsx` → `计划总库` | `gen_seed.py` → `seed.programLib` | App 计划库浏览页 |
 | 组策略、适用性矩阵、辅助动作 | `01_工作簿/RPL_Set_Strategy_v0.15.xlsx` | `gen_seed.py` → `seed.strategyLib` | App 策略浏览页 |
-| **读哪些单元格** | `mobile/tools/gen_seed.py` 的 range 调用 + `mobile/tools/wkbook.py`（W 行坐标单源） | — | 本文件不抄坐标，抄了就和代码分叉 |
+| **读哪些单元格** | `mobile/tools/gen_seed.py` 的表名与表头（新簿按首行表头逐列读）；旧簿 W 行坐标只在 `mobile/tools/wkbook.py` 内部保留，不再参与种子 | — | 本文件不抄坐标，抄了就和代码分叉 |
 | 资源主数据（全量、机器可读） | `04_生成物/refs_manifest.json` | 人读时导成表 | `04_生成物/refs_index.csv` |
 | 交换契约（六表 / 日志 / 信封） | `mobile/tools/schema/RPL-Plan-v1.json`、`RPL-Exchange-v1.json` | App 成品 + Python 两侧共读 | 任何第二份列名手抄 |
 
@@ -86,11 +89,20 @@ git ls-files --others --exclude-standard data | wc -l    # 期望 0
 
 ---
 
-## 3. 三个工作簿的边界
+## 3. 四份工作簿的边界
 
-### 3.1 权威源 `RPL_ExDark_v0.15_ProMax.xlsx`（24 表）
+### 3.0 现行计划源 `RPL_ExDark_v0.70_Plan_2026-11-09.xlsx`（11 表）
 
-- 角色：**唯一权威源 + `gen_seed.py` 兼容源**，状态冻结（只读优先）。
+- 角色：**现行计划源**，`gen_seed.py` 读它生成 App 默认种子（`XLSX` 常量指向它，gate S8 钉住）。
+- 表：`Profile` `Blocks` `Days` `Workouts` `Telemetry` `GPP` `Gear` `Level` + 从旧簿 values-only 复制的 `动作库` `映射` `协议`。
+- `Workouts.sets` 是组数的唯一来源（导入 App 后驱动组数切换），`rx` 是处方**原文**：App 解析不了会显式标 `UNPARSED` 并保留原文，不拿 `协议` 顶替；`协议` 只在计划没写处方（空/Custom/Auto）时兜底。
+- **禁止**：手改 App 内账本再当计划源；改计划只改这本簿，然后 `gen_seed.py` → `build_html.py` → 全量门禁。
+- 加周/减周：改 `Blocks` 与 `Workouts`，`gen_seed.py` 会校验 `Profile.plan_weeks` 等于 Blocks 周数之和。
+
+### 3.1 旧权威源 `RPL_ExDark_v0.15_ProMax.xlsx`（24 表，历史）
+
+- 角色：**历史源，原样保留**（不再驱动种子）。它的 `动作库`/`映射`/`协议` 已在建新簿时 values-only 复制过去；`W1–W16` 模板仍可作对账参照，但 App 不再读。
+- **禁止**：删除、改名、覆盖它（「数据不可破」）；把新计划写回这本簿。
 - **禁止**：用 `openpyxl` 保存它。`W1–W16` 的 `LOAD` / `PROTOCOL` / `RPE` 是公式，`gen_seed.py` 以 `data_only=True` 读缓存值，openpyxl 一保存缓存就空 → 负荷读成 0、组次协议读成空。要写入就用 Excel/WPS 打开后保存，保存完确认公式仍有缓存值，再跑 `gen_seed.py`。
 - **禁止**：在 `W1–W16` 插入行或列、改动 `信息` 的固定坐标区、删除任何工作表。改坐标属于代码变更，`gen_seed.py` / `wkbook.py` 同改并重跑种子 + 全量门禁。
 - 元数据与数据字典在 `04_生成物/05_主工作簿数据字典.csv`（**不写在簿内**，理由同上）。
@@ -127,10 +139,10 @@ git ls-files --others --exclude-standard data | wc -l    # 期望 0
 | `refs_manifest.json` / `refs_index.csv` | 扫描 `ref/02_参考资料` + 元数据 | 资源主数据（机器读 / 人读） |
 | `checksums.sha256` | 逐文件哈希 | 完整性校验 |
 | `01_文件迁移表.csv` | 重组记录 | 旧路径 → 新路径可追溯 |
-| `02_重复文件清单.csv` | 哈希去重 | `05_归档/01_重复文件/` 的账 |
+| `02_重复文件清单.csv` | 哈希去重 | `05_归档/01_重复文件/` 的账（该目录已移出项目，本机留档） |
 | `04_数据质量报告.md` | 自动统计 | 交付时的体检结论 |
 | `05_主工作簿数据字典.csv` | 自动统计 | 权威源的字段字典 |
-| `05_归档/01_重复文件/` | 哈希重复副本 | 只归档不删；不跟踪 |
+| `05_归档/01_重复文件/` | 哈希重复副本 | 已移出项目（本机留档）；只归档不删，不跟踪 |
 | `05_归档/02_旧索引/` `03_过期索引/` | 被取代的索引 | 历史可追溯 |
 | `05_归档/04_工作簿备份/` | 改动前备份 | 回滚点 |
 
@@ -142,5 +154,5 @@ git ls-files --others --exclude-standard data | wc -l    # 期望 0
 
 1. **加一份参考资料** → 判分类 → 按 §4 命名 → 放入目录（同名先比哈希，别覆盖）→ 重跑 `04_生成物` 的 manifest / index / checksums。要让它进仓，就得让 seed 的 `canon` 指到它，否则只是本机文件。
 2. **改一个计划条目** → 只改 `计划总库`；保持前 16 列顺序 → 确认 `gen_seed.py` 的列读取范围没变 → `cd mobile && python tools/gate.py`。
-3. **改权威源** → 先备份进 `05_归档/04_工作簿备份/` → 用 Excel/WPS 改 → 重跑 `gen_seed.py` + `build_html.py` → 全量门禁。
+3. **改权威源** → 先备份进 `05_归档/04_工作簿备份/` → 改 `01_工作簿/RPL_ExDark_v0.70_Plan_2026-11-09.xlsx`（用 Excel/WPS，别用 openpyxl 保存带公式的旧簿）→ 重跑 `gen_seed.py` + `build_html.py` → 全量门禁。
 4. **改文件名** → 属于破坏性操作：`gen_seed.py` 的 `XLSX`、`rxlib.py` 的 `__main__` 默认路径、引用该名的文档三处同改，再重跑种子与打包（gate S8 三端同源会当场抓出来）。改前先快照。

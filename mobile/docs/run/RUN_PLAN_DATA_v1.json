@@ -1,0 +1,492 @@
+{
+  "format": "RPL-RunPlan",
+  "schemaVersion": "RPL-RunPlan-v1",
+  "generatedAt": "2026-11-07",
+  "rulings": "2026-11-07 裁定：W6-D（12/19）与 W9-D（01/09）不跑；W7 降为 3×72s；W3 与 W2 持平（不缩短、不加速、不增次数）；导入形态取 C，计划表不设 status 列。",
+  "source": {
+    "spec": "mobile/docs/run/RUN_MODULE_SPEC.md",
+    "design": "mobile/docs/run/跑步模块设计_v0.80.md",
+    "strength_plan": "mobile/plans/RPL_ExDark_Plan_2026-11-09_Test2027-01-09.json"
+  },
+  "note": "本文件是跑步课表的导入载荷草案，不是运行时第二数据源。v0.80 实现时把本文件数值一次性写入模板常量 RUN_PLAN，之后以 RUN_PLAN 为唯一源；本文件转为 RUN1 断言的逐项对账夹具。力量侧的组次/重量不在本文件出现，权威一律读上面 strength_plan。",
+
+  "cycle": {
+    "start_date": "2026-11-09",
+    "weeks": 9,
+    "test_date": "2027-01-09",
+    "backup_test_date": "2027-01-10",
+    "hrMaxDefault": 190,
+    "hrMaxRange": [150, 220],
+    "treadmill_incline_pct": 1,
+    "session_cap_min": 30,
+    "rules": {
+      "no_two_consecutive_days": true,
+      "pain_gate": "跑中或次日晨起疼痛 >2/10：当周处方降一档并重复一周，不跨档加量",
+      "soreness_gate": "周六晨起膝外侧/足底/小腿压痛明显：当周间歇降级为 20 min 轻松跑或跳过"
+    }
+  },
+
+  "days": [
+    {
+      "day": "B",
+      "weekday": "周三",
+      "weekday_offset": 2,
+      "type": "easy",
+      "placement": "卧推主项训练之后 30 分钟内",
+      "why": "DAY B 是上肢日，下肢无轴向负荷，轻松跑可当日叠加且不影响周五硬拉"
+    },
+    {
+      "day": "D",
+      "weekday": "周六",
+      "weekday_offset": 5,
+      "type": "interval",
+      "placement": "高翻技术 + 上背训练之后 30 分钟内",
+      "why": "周六离下周一重日有 36 小时以上；周日全休，间歇后有一天缓冲"
+    }
+  ],
+
+  "blackout": {
+    "weekdays": ["周一", "周五", "周日"],
+    "weekday_reasons": {
+      "周一": "DAY A：深蹲 + 卧推 + 硬拉重日，跑会叠加下肢轴向与冲击负荷",
+      "周五": "DAY C：硬拉主项 + 节奏深蹲，跑会破坏周六间歇的恢复前提",
+      "周日": "全休日，且次日为周一重日，不排任何跑"
+    },
+    "dates": [
+      { "date": "2026-12-19", "reason": "考试周全休（12/19–12/20 零训练，用户硬约束）" },
+      { "date": "2026-12-20", "reason": "考试周全休（12/19–12/20 零训练，用户硬约束）" },
+      { "date": "2027-01-07", "reason": "测试前 48 小时内，不跑" },
+      { "date": "2027-01-08", "reason": "测试前 24 小时内，不跑" },
+      { "date": "2027-01-09", "reason": "主测日（DAY D 即测试日），禁止任何跑" }
+    ],
+    "conditional": "任意一天晨起足底/膝外侧/小腿疼痛 >2/10，当日不跑"
+  },
+
+  "hr_zones": [
+    { "zone": "Z1", "pct": "50–60%", "atHrMax190": [95, 114], "use": "冷身、组间走" },
+    { "zone": "Z2", "pct": "60–70%", "atHrMax190": [114, 133], "use": "轻松跑主力" },
+    { "zone": "Z3", "pct": "70–80%", "atHrMax190": [133, 152], "use": "轻松跑上沿、节奏段" },
+    { "zone": "Z4", "pct": "80–90%", "atHrMax190": [152, 171], "use": "间歇后段" },
+    { "zone": "Z5", "pct": "90–100%", "atHrMax190": [171, 190], "use": "300m 末段、5K 自测" }
+  ],
+
+  "intensity_rule": {
+    "easy": "心率是权威，配速只是结果；主观口径用能说话测试",
+    "interval": "配速/秒数是权威，心率只用于判断组间恢复是否足够；主观口径用组间对话测试",
+    "rpe": "不设 RPE 字段。需求书 §1/§10 明确禁止用 RPE 写跑步处方，主观强度一律用「能说话」描述。"
+  },
+
+  "weeks": [
+    {
+      "week": 1,
+      "block": "B1",
+      "block_phase": "Hyper",
+      "run_phase": "build",
+      "week_start": "2026-11-09",
+      "week_end": "2026-11-15",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2026-11-11",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 20,
+          "intensity": {
+            "objective": { "kind": "hr", "low": 120, "high": 135, "zone": "Z2（上沿触 Z3）" },
+            "pace_ref_kmh": [9.5, 10.0],
+            "pace_ref_mmss_km": "6:00–6:18",
+            "subjective": { "kind": "talk_test", "text": "能整句说话，鼻呼吸为主；不能唱歌" }
+          },
+          "structure": "热身快走/慢跑 5 min → Z2 20 min → 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": ""
+        },
+        {
+          "day": "D",
+          "date": "2026-11-14",
+          "type": "interval",
+          "skip": false,
+          "reps": 3,
+          "target_sec": 78,
+          "work_m": 900,
+          "work_sec": 234,
+          "pace_sec_km": 260,
+          "pace_mmss_km": "4:20",
+          "treadmill_kmh": 13.8,
+          "recover_walk_m": 100,
+          "recover_hr_max": 140,
+          "intensity": {
+            "objective": { "kind": "pace", "target_sec_300m": 78, "treadmill_kmh": 13.8, "pace_mmss_km": "4:20" },
+            "subjective": { "kind": "talk_test", "text": "跑中只能说短句；组间走到能整句对话才开下一组" }
+          },
+          "structure": "热身快走/慢跑 5 min → 走100m + 跑300m × 3（组间 HR≤140）→ 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "小腿后侧约束：本周不上 15 km/h"
+        }
+      ]
+    },
+    {
+      "week": 2,
+      "block": "B1",
+      "block_phase": "Hyper",
+      "run_phase": "build",
+      "week_start": "2026-11-16",
+      "week_end": "2026-11-22",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2026-11-18",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 25,
+          "intensity": {
+            "objective": { "kind": "hr", "low": 120, "high": 135, "zone": "Z2（上沿触 Z3）" },
+            "pace_ref_kmh": [9.5, 10.0],
+            "pace_ref_mmss_km": "6:00–6:18",
+            "subjective": { "kind": "talk_test", "text": "能整句说话，鼻呼吸为主" }
+          },
+          "structure": "热身 5 min → Z2 25 min → 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": ""
+        },
+        {
+          "day": "D",
+          "date": "2026-11-21",
+          "type": "interval",
+          "skip": false,
+          "reps": 3,
+          "target_sec": 76,
+          "work_m": 900,
+          "work_sec": 228,
+          "pace_sec_km": 253,
+          "pace_mmss_km": "4:13",
+          "treadmill_kmh": 14.2,
+          "recover_walk_m": 100,
+          "recover_hr_max": 140,
+          "intensity": {
+            "objective": { "kind": "pace", "target_sec_300m": 76, "treadmill_kmh": 14.2, "pace_mmss_km": "4:13" },
+            "subjective": { "kind": "talk_test", "text": "跑中只能说短句；组间走到能整句对话才开下一组" }
+          },
+          "structure": "热身 5 min → 走100m + 跑300m × 3（组间 HR≤140）→ 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "小腿后侧约束：本周仍不上 15 km/h"
+        }
+      ]
+    },
+    {
+      "week": 3,
+      "block": "B1",
+      "block_phase": "Hyper·deload",
+      "run_phase": "build",
+      "week_start": "2026-11-23",
+      "week_end": "2026-11-29",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2026-11-25",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 25,
+          "intensity": {
+            "objective": { "kind": "hr", "low": 120, "high": 135, "zone": "Z2" },
+            "pace_ref_kmh": [9.5, 10.0],
+            "pace_ref_mmss_km": "6:00–6:18",
+            "subjective": { "kind": "talk_test", "text": "能整句说话，鼻呼吸为主" }
+          },
+          "structure": "热身 5 min → Z2 25 min → 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "力量侧减载周，跑步与 W2 持平：不缩短、不加速、不新增次数（裁定 3）"
+        },
+        {
+          "day": "D",
+          "date": "2026-11-28",
+          "type": "interval",
+          "skip": false,
+          "reps": 3,
+          "target_sec": 76,
+          "work_m": 900,
+          "work_sec": 228,
+          "pace_sec_km": 253,
+          "pace_mmss_km": "4:13",
+          "treadmill_kmh": 14.2,
+          "recover_walk_m": 100,
+          "recover_hr_max": 140,
+          "intensity": {
+            "objective": { "kind": "pace", "target_sec_300m": 76, "treadmill_kmh": 14.2, "pace_mmss_km": "4:13" },
+            "subjective": { "kind": "talk_test", "text": "跑中短句；组间能整句对话才开下一组" }
+          },
+          "structure": "热身 5 min → 走100m + 跑300m × 3（组间 HR≤140）→ 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "与 W2 持平（组数、距离、配速不变，裁定 3）"
+        }
+      ]
+    },
+    {
+      "week": 4,
+      "block": "B2",
+      "block_phase": "Strength",
+      "run_phase": "build",
+      "week_start": "2026-11-30",
+      "week_end": "2026-12-06",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2026-12-02",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 30,
+          "tempo": { "kind": "last5", "minutes": 5, "hr": [145, 155] },
+          "intensity": {
+            "objective": { "kind": "hr", "low": 125, "high": 140, "zone": "Z2–Z3", "tempo_tail_hr": [145, 155] },
+            "pace_ref_kmh": [9.5, 10.0],
+            "pace_ref_mmss_km": "6:00–6:18",
+            "subjective": { "kind": "talk_test", "text": "主体能整句说话；最后 5 min 只能短句" }
+          },
+          "structure": "热身 5 min → Z2 25 min → 最后 5 min HR 145–155 → 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": ""
+        },
+        {
+          "day": "D",
+          "date": "2026-12-05",
+          "type": "interval",
+          "skip": false,
+          "reps": 4,
+          "target_sec": 74,
+          "work_m": 1200,
+          "work_sec": 296,
+          "pace_sec_km": 247,
+          "pace_mmss_km": "4:07",
+          "treadmill_kmh": 14.6,
+          "recover_walk_m": 100,
+          "recover_hr_max": 140,
+          "intensity": {
+            "objective": { "kind": "pace", "target_sec_300m": 74, "treadmill_kmh": 14.6, "pace_mmss_km": "4:07" },
+            "subjective": { "kind": "talk_test", "text": "跑中短句；组间能整句对话才开下一组" }
+          },
+          "structure": "热身 5 min → 走100m + 跑300m × 4（组间 HR≤140）→ 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "week": 5,
+      "block": "B2",
+      "block_phase": "Strength",
+      "run_phase": "peak",
+      "week_start": "2026-12-07",
+      "week_end": "2026-12-13",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2026-12-09",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 30,
+          "tempo": { "kind": "mid10", "minutes": 10, "hr": [145, 155] },
+          "intensity": {
+            "objective": { "kind": "hr", "low": 125, "high": 140, "zone": "Z2–Z3", "tempo_mid_hr": [145, 155] },
+            "pace_ref_kmh": [9.5, 10.0],
+            "pace_ref_mmss_km": "6:00–6:18",
+            "subjective": { "kind": "talk_test", "text": "中段 10 min 只能短句，前后能整句说话" }
+          },
+          "structure": "热身 5 min → Z2 10 min → 中段 10 min HR 145–155 → Z2 10 min → 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "本周力量侧为重周且跑步量达峰值，若周五硬拉后恢复差，中段节奏段可砍半"
+        },
+        {
+          "day": "D",
+          "date": "2026-12-12",
+          "type": "interval",
+          "skip": false,
+          "reps": 5,
+          "target_sec": 72,
+          "work_m": 1500,
+          "work_sec": 360,
+          "pace_sec_km": 240,
+          "pace_mmss_km": "4:00",
+          "treadmill_kmh": 15.0,
+          "recover_walk_m": 100,
+          "recover_hr_max": 140,
+          "intensity": {
+            "objective": { "kind": "pace", "target_sec_300m": 72, "treadmill_kmh": 15.0, "pace_mmss_km": "4:00" },
+            "subjective": { "kind": "talk_test", "text": "跑中短句；组间能整句对话才开下一组" }
+          },
+          "structure": "热身 5 min → 走100m + 跑300m × 5（组间 HR≤140）→ 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "全周期间歇次数峰值（5 次）；与力量重周同周，见自查 §6.4"
+        }
+      ]
+    },
+    {
+      "week": 6,
+      "block": "B2",
+      "block_phase": "Strength·deload",
+      "run_phase": "deload",
+      "week_start": "2026-12-14",
+      "week_end": "2026-12-20",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2026-12-16",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 20,
+          "intensity": {
+            "objective": { "kind": "hr", "low": 0, "high": 135, "zone": "Z2 上限" },
+            "pace_ref_kmh": [9.5, 10.0],
+            "pace_ref_mmss_km": "6:00–6:18",
+            "subjective": { "kind": "talk_test", "text": "全程能整句说话，喘不上来就降速" }
+          },
+          "structure": "热身 5 min → Z2 20 min → 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "hr_low=0 表示只设上限；本周 DAY D 为 12/19 考试全休，不排跑"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "block": "B3",
+      "block_phase": "Peak",
+      "run_phase": "hold",
+      "week_start": "2026-12-21",
+      "week_end": "2026-12-27",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2026-12-23",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 30,
+          "optional": true,
+          "alternative": {
+            "kind": "time_trial_5k",
+            "distance_km": 5,
+            "note": "可选。不设成绩目标，只记用时/平均心率/最大心率作为趋势点；不测就按 30 min 轻松跑执行"
+          },
+          "intensity": {
+            "objective": { "kind": "hr", "low": 125, "high": 140, "zone": "Z2–Z3" },
+            "pace_ref_kmh": [9.5, 10.0],
+            "pace_ref_mmss_km": "6:00–6:18",
+            "subjective": { "kind": "talk_test", "text": "轻松跑口径：能整句说话；5K 自测口径：全程只能短句" }
+          },
+          "structure": "热身 5 min → Z2 30 min → 冷身 5 min（自测则改为 5K 计时）",
+          "treadmill_incline_pct": 1,
+          "notes": "5K 自测在 UI 上必须显示「可选」，不得默认强制"
+        },
+        {
+          "day": "D",
+          "date": "2026-12-26",
+          "type": "interval",
+          "skip": false,
+          "reps": 3,
+          "target_sec": 72,
+          "work_m": 900,
+          "work_sec": 216,
+          "pace_sec_km": 240,
+          "pace_mmss_km": "4:00",
+          "treadmill_kmh": 15.0,
+          "recover_walk_m": 100,
+          "recover_hr_max": 140,
+          "intensity": {
+            "objective": { "kind": "pace", "target_sec_300m": 72, "treadmill_kmh": 15.0, "pace_mmss_km": "4:00" },
+            "subjective": { "kind": "talk_test", "text": "跑中短句；组间能整句对话才开下一组" }
+          },
+          "structure": "热身 5 min → 走100m + 跑300m × 3（组间 HR≤140）→ 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "力量峰值周：跑步不为峰值让路、也不得影响主测恢复；不追最快配速（裁定 2），全周期最快目标统一为 72s"
+        }
+      ]
+    },
+    {
+      "week": 8,
+      "block": "B4",
+      "block_phase": "Custom·TAPER",
+      "run_phase": "taper",
+      "week_start": "2026-12-28",
+      "week_end": "2027-01-03",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2026-12-30",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 25,
+          "intensity": {
+            "objective": { "kind": "hr", "low": 125, "high": 135, "zone": "Z2" },
+            "pace_ref_kmh": [9.5, 10.0],
+            "pace_ref_mmss_km": "6:00–6:18",
+            "subjective": { "kind": "talk_test", "text": "全程能整句说话" }
+          },
+          "structure": "热身 5 min → Z2 25 min → 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": ""
+        },
+        {
+          "day": "D",
+          "date": "2027-01-02",
+          "type": "interval",
+          "skip": false,
+          "reps": 3,
+          "target_sec": 72,
+          "work_m": 900,
+          "work_sec": 216,
+          "pace_sec_km": 240,
+          "pace_mmss_km": "4:00",
+          "treadmill_kmh": 15.0,
+          "recover_walk_m": 100,
+          "recover_hr_max": 140,
+          "intensity": {
+            "objective": { "kind": "pace", "target_sec_300m": 72, "treadmill_kmh": 15.0, "pace_mmss_km": "4:00" },
+            "subjective": { "kind": "talk_test", "text": "跑中短句；组间能整句对话才开下一组" }
+          },
+          "structure": "热身 5 min → 走100m + 跑300m × 3（组间 HR≤140）→ 冷身 5 min",
+          "treadmill_incline_pct": 1,
+          "optional": false,
+          "notes": "距主测日 7 天，只做减量激活，不追秒"
+        }
+      ]
+    },
+    {
+      "week": 9,
+      "block": "B5",
+      "block_phase": "Custom·TEST WEEK",
+      "run_phase": "test",
+      "week_start": "2027-01-04",
+      "week_end": "2027-01-10",
+      "sessions": [
+        {
+          "day": "B",
+          "date": "2027-01-06",
+          "type": "easy",
+          "skip": false,
+          "duration_min": 20,
+          "optional": true,
+          "intensity": {
+            "objective": { "kind": "hr", "low": 0, "high": 130, "zone": "Z2 上限" },
+            "pace_ref_kmh": [9.0, 9.5],
+            "pace_ref_mmss_km": "6:18–6:40",
+            "subjective": { "kind": "talk_test", "text": "全程能整句说话；腿沉就跳过" }
+          },
+          "structure": "热身 5 min → Z2 20 min → 冷身 5 min；可整段跳过",
+          "treadmill_incline_pct": 1,
+          "notes": "测试前 3 天，只做血液循环，不加任何快跑；本周 DAY D 为 01/09 主测日，不排跑"
+        }
+      ]
+    }
+  ]
+}

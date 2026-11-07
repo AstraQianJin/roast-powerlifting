@@ -73,43 +73,12 @@ let chrome = null, profDir = null;
   await send(ws, id, 'Page.navigate', { url: FILE });
   await waitReady();
 
-  // 迁移前置：清空三路分片，只留一份「旧字段名 v=5」的单文件存档。
-  // 之前它没清分片，boot() 优先读 workout，legacy 分支从未被真正走过（A6 恒真）。
-  // 置空 state 是为了让 pagehide 的 flushSave 短路，别在重载瞬间把分片写回来。
-  const lsKey = await send(ws, id, 'Runtime.evaluate',
-    { expression: "(typeof LS!=='undefined')?LS:null", returnByValue: true })
-    .then(r => r.result && r.result.value).catch(() => null);
-  let legacyOK = false;
-  if (lsKey) {
-    legacyOK = await send(ws, id, 'Runtime.evaluate', {
-      expression: `(function(){
-        var s=JSON.parse(JSON.stringify(state));
-        /* 仿旧要连口径一起仿：把自重类的新语义外载折回旧语义净重，
-           否则 v7 net2ext 会拿真外载再减一遍体重，自重加载在 boot 后全变负数。 */
-        if(typeof v7EachExercise==='function'){
-          v7EachExercise(s,function(e,w,d,i,dd){
-            if(e.conv||e.gearPending) return;
-            if(v7GearKind(s,e.mv)!=='bw') return;
-            var cur=+e.load||0; if(cur<=0) return;
-            var bw=(+dd.bw)||(+s.profile&&+s.profile.bw)||0;
-            if(bw>0) e.load=+(cur+bw*v7LeverOf(s,e.mv)).toFixed(2);
-          });
-        }
-        s.v=5; delete s.schemaVer;
-        var t=JSON.stringify(s);
-        state=null;
-        [LS_WORK,LS_PREFS,LS_LIB].forEach(function(k){ localStorage.removeItem(k); });
-        localStorage.setItem(${JSON.stringify(lsKey)}, t);
-        var q=JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)}));
-        return q.v===5 && q.schemaVer===undefined && !localStorage.getItem(LS_WORK);
-      })()`, returnByValue: true
-    }).then(r => r.result && r.result.value).catch(() => false);
-    await send(ws, id, 'Page.reload');
-    await waitReady();
-  }
+  /* v0.70 起不再迁移旧档：启动只接受当前盖章（SCHEMA_STAMP）且器械档案合法的存档，
+     其余一律 markBootFatal('incompatible_gear') 只读阻断。所以这里不再播种 v=5 旧档，
+     主块按「全新安装」路径跑；旧档阻断另由 R/S 段的单独重载轮验。 */
 
   /* 主断言块的期望条数（不含 R/S 重载轮）；增删断言时同步改这里。 */
-  const EXP_N = 461;   /* v0.47 主页/HX 加 15；v0.48 分享图 PX 加 11；v0.49 设置页六段 E 改写 +3、六边形记录 HP 加 9；v0.54 视角/形态 HP10–13 加 4、伤病 HL1–4 加 4；v0.58 六轴重定义 HP14–15 加 2、最近训练模块退役 HX 减 1、计算器折叠 HX12 替换；本版打气模块删除 HX8/HX9/PX9 减 3；v0.70 设置独立页/返回栈 E12–E14 加 3 */
+  const EXP_N = 493;   /* 本版实练 RPE 不凭空写 RP1–RP5 + 关闭不静默丢 DS1–DS5 + 徽章账本同源 BS1–BS3 + 设置二级返回栈 E15/E16 + v0.70 段位徽章图皮 RK1–RK3 + W5 取重口径/W5a + 换计划保留 gearProfile LD1b + W6 公式口径 N22f–k/K6b；历史增量见 git log */
   const expr = `(function(){
     var o=[],P=0,F=0;
     /* 版本串来自本文件顶部的 VER（build.gradle 直读），此处不再手抄 */
@@ -117,8 +86,6 @@ let chrome = null, profDir = null;
     /* 断言总数闸门：任何一条 T() 被误删、或整段被 if 跳过（如 F 块缺函数），
        计数就会掉下这个数 —— 没有它，「150 全绿」可能只是「120 全绿」被默默接受。 */
     var EXP_N=${EXP_N};
-    /* 旧存档（字段名 v）是否真的写进过存储 —— 由外层迁移前置步骤置位 */
-    var LEGACY=${legacyOK ? 'true' : 'false'};
     var T=function(n,c,x){ if(c)P++;else F++; o.push((c?'PASS  ':'FAIL  ')+n+(x!==undefined?('  ['+x+']'):'')); };
     var HAN=new RegExp('[\\\\u4e00-\\\\u9fa5]');
     var txt=function(s){var e=document.getElementById(s);return e?e.textContent.trim():null;};
@@ -164,10 +131,17 @@ let chrome = null, profDir = null;
               'advMvKey','advFlash','advPaintTools','advPaintAudit','setAdvTier','fillAdviceTier','onAdvWeekChange','advCurWeek',
               'toggleAdvSettings','topSheet',
               'flashCard','pingDayComplete','edChain','toggleDone','bumpSet','quickLoad','saveEditor','toast','stopTimer',
+              /* 逐组落库（A 口径：一组一点） */
+              'setLogOf','setSnap','lastSetOf','renderSetLog','editSetField',
+              'edFingerprint','editorDirty','showEdLeave','hideEdLeave','edLeaveCancel','edLeaveDiscard','edLeaveSave',
+              'e1rmInputOf','e1rmOfExercise','doImportCsvText','csvRow',
+              'basisKgOf','basisNoteFor','stripCsvMarkers',
+              'effRpeOf','glFloorOf','glFloorReason','calcIpfGlRaw','withRpeClampToken','rpeClampOf','exerciseNotesFor','refreshProfileCoefs',
               'DEFAULT_PLATE_CFG','plateStock','plateSet','plateOn','togglePlateKg',
               'lcTypeOf','lcReset','lcNum','lcCount','lcTotal','lcFieldHtml','lcBodyFields','lcPickType',
-              'lcApplyFold','lcToggle','lcPaintTog',
-              'renderLoadCalc','readLoadCalc','paintLoadCalc','fillLoadFromCalc',
+              'applyToolsFold','toggleToolsFold','openToolLoad','runToolRm','openToolRm','runToolCoef','openToolCoef',
+              'rankIconHtml','calcGlRank',
+              'renderLoadCalc','readLoadCalc','paintLoadCalc',
               'renderEnvSheet','renderEnvLoc','saveDayLoc','dayLoc','setDayLoc','activeWeekNums','renderLocLine',
               'withAutoreg','calibParamKeys','calibCand','calibOverride','calibGrade','calibRun',
               'calibSweep','calibVerdict','openCalibSheet','renderCalib',
@@ -213,10 +187,13 @@ let chrome = null, profDir = null;
       !document.querySelector('.chip-hud') && document.body.innerText.indexOf('ProMax')<0
       && document.body.innerText.indexOf('☰')<0 && document.querySelectorAll('.hdr-actions .ico-btn').length===3,
       document.querySelectorAll('.hdr-actions .ico-btn').length);
-    T('A6 旧单文件存档(v=5)→三路分片迁移并盖章', LEGACY && state.schemaVer===SCHEMA_STAMP && state.v===undefined
+    T('A6 全新安装：当前盖章 + 器械档案合法 + 无旧 gearDefaults/stackCfg，账本落 workout 分片',
+      state.schemaVer===SCHEMA_STAMP && state.v===undefined
+      && gearProfileOk(state.gearProfile) && state.gearDefaults===undefined
+      && !hasLegacyStackCfg(state)
       && (function(){ var q=JSON.parse(localStorage.getItem(LS_WORK)||'null');
                       return !!q && q.schemaVer===SCHEMA_STAMP && q.v===undefined; })(),
-      state.schemaVer+'/legacy='+LEGACY);
+      state.schemaVer+'/gear='+JSON.stringify(state.gearProfile));
     T('A7 存档含 lib.domains 五域', !!state.lib && Array.isArray(state.lib.domains) && state.lib.domains.length===5, state.lib&&state.lib.domains&&state.lib.domains.length);
     T('A8 五域顺序 T1.Main→Power', state.lib.domains.map(function(d){return d.id;}).join(',')==='T1.Main,Variation,SBD,Hyper,Power', state.lib.domains.map(function(d){return d.id;}).join(','));
     T('A9 SEED 源标识为 v'+EXP, txt('srcLine')!==null && txt('srcLine').indexOf('RPL_ExDark_v'+EXP)>=0, txt('srcLine'));
@@ -278,7 +255,7 @@ let chrome = null, profDir = null;
     var heads=Array.prototype.slice.call(document.querySelectorAll('#setSheet .set-sec-hdr')).map(function(h){return h.id;});
     var rowIds=mainRows.map(function(r){ var b=r.querySelector('.sl b'); return b?b.id:''; });
     T('E1 设置主表 16 行', mainRows.length===16, mainRows.length);
-    T('E2 七段标题顺序', heads.join(',')==='setProfileHdr,setTrainHdr,setEquipHdr,setAppearHdr,setDataHdr,setAboutHdr,setAdvHdr', heads.join(','));
+    T('E2 设置页八段标题顺序（档案/训练/器械/工具/外观/数据/关于/高级）', heads.join(',')==='setProfileHdr,setTrainHdr,setEquipHdr,setToolsHdr,setAppearHdr,setDataHdr,setAboutHdr,setAdvHdr', heads.join(','));
     T('E3 我的档案 3 行（昵称·我的档案·每日状态）', rowIds.slice(0,3).join(',')==='setNickT,setProfT,setTeleT', rowIds.join(','));
     T('E4 我的训练 4 行（训练计划·自动调整·恢复评估·动作与计划库）', rowIds.slice(3,7).join(',')==='setStructT,setAdvT,setJtsT,setSciT', rowIds.join(','));
     T('E5 器械与场地 2 行', rowIds.slice(7,9).join(',')==='setEnvT,setKitT', rowIds.join(','));
@@ -302,6 +279,25 @@ let chrome = null, profDir = null;
       && document.getElementById('setSheet').classList.contains('on'),
       'prof='+PprofOn);
     T('E14 设置页再返回才回首页', window.__handleBack()===true && !document.querySelector('.sheet.on'), '');
+    /* 二级栈：设置 → 动作与计划库 → 经典计划库。返回必须一层一层退，而不是一退到首页。
+       这是用户每天撞到的路径（「高级 → 子页 → 返回」要回高级），只测一级栈不够。 */
+    closeAllSheets(); openSettings();
+    document.getElementById('setSciGo').click();
+    openProgLibSheet();
+    T('E15 三级路径：经典计划库返回落在动作与计划库（不是设置/首页）',
+      document.getElementById('progLibSheet').classList.contains('on')
+      && document.getElementById('sciSheet').classList.contains('on')
+      && window.__handleBack()===true
+      && !document.getElementById('progLibSheet').classList.contains('on')
+      && document.getElementById('sciSheet').classList.contains('on'),
+      'prog='+document.getElementById('progLibSheet').classList.contains('on')
+      +' sci='+document.getElementById('sciSheet').classList.contains('on'));
+    T('E16 再返回一次落在设置页，第三次返回才退出设置',
+      window.__handleBack()===true
+      && !document.getElementById('sciSheet').classList.contains('on')
+      && document.getElementById('setSheet').classList.contains('on')
+      && window.__handleBack()===true && !document.querySelector('.sheet.on'),
+      'set='+document.getElementById('setSheet').classList.contains('on'));
     T('E9 环境/科学/导入 hub 行数（环境含杆重/赛扣/配片库存/地点/器械推断五行）', document.querySelectorAll('#envSheet .set-row').length===5
       && document.querySelectorAll('#sciSheet .set-row').length===3
       && document.querySelectorAll('#ioSheet .set-row').length===5,
@@ -455,22 +451,55 @@ let chrome = null, profDir = null;
     T('K4 water 写入 rx_text', !!tel && tel.rx_text==='2.5', tel&&tel.rx_text);
     T('K5 duration/sessionRpe/joint 各归其列', !!tel && tel.duration_min==='45' && tel.actual_rpe==='8' && tel.notes==='3', tel&&[tel.duration_min,tel.actual_rpe,tel.notes].join('/'));
     T('K6 解析行键数 = 26', !!tel && (Object.keys(tel).length-1)===26, tel&&Object.keys(tel).length-1);
+    /* G11：CSV notes 的口径戳 / RPE 夹取标记往返幂等（导出→解析→剥离回原文，绝不吞用户备注） */
+    T('K6b 口径戳与 [RPE<5=>5] 只追加一次、导入侧剥净、用户备注原样保留', (function(){
+      var e0=null, d0=null, dbg='';
+      try{ d0=day(); for(var i=0;i<(d0.exercises||[]).length;i++){ if(d0.exercises[i]&&d0.exercises[i].mv){ e0=d0.exercises[i]; break; } } }catch(e){}
+      if(!e0) return false;
+      var keepLog=JSON.stringify(e0.setLog||null), keepNote=e0.notes||'';
+      try{
+        e0.notes='用户备注';
+        e0.setLog=[{kg:100,reps:5,rpe:4.5,src:'achieved',basis:'barbell:bar20+c'}];
+        var rows=unifiedRecords(), rec=null;
+        for(var j=0;j<rows.length;j++){
+          if(rows[j].record_type==='EXERCISE'&&+rows[j].week===+state.week&&rows[j].day===state.day&&rows[j].movement===e0.mv){ rec=rows[j]; break; }
+        }
+        if(!rec) return false;
+        var nt=String(rec.notes||'');
+        var one=(nt.split('[RPE<5=>5]').length-1)===1&&nt.indexOf('[basis=achieved;barbell:bar20+c]')>=0;
+        var strip=stripCsvMarkers(nt);
+        var dedupe=withRpeClampToken(withRpeClampToken(nt))===nt;
+        var round='';
+        var prs2=csvParse(exportUnifiedCsv());
+        for(var k=0;k<prs2.length;k++){
+          if(prs2[k].record_type==='EXERCISE'&&+prs2[k].week===+state.week&&prs2[k].day===state.day&&prs2[k].movement===e0.mv){ round=prs2[k].notes||''; break; }
+        }
+        var ok=one&&strip==='用户备注'&&dedupe&&stripCsvMarkers(round)==='用户备注';
+        dbg='nt='+JSON.stringify(nt)+' strip='+JSON.stringify(strip)+' dedupe='+dedupe+' round='+JSON.stringify(round);
+        v3vK6bDbg=dbg;
+        return ok;
+      }catch(e){ v3vK6bDbg='err '+e.message; return false; }
+      finally{ try{ e0.notes=keepNote; if(keepLog) e0.setLog=JSON.parse(keepLog); else delete e0.setLog; }catch(e){} }
+    })(), (typeof v3vK6bDbg!=='undefined'?v3vK6bDbg:''));
     dw.post=oldPost;
-    /* 只读屏的「导出原始存档」是 JSON 文本，不能走 exportCsv——那条通道 MIME 写死 text/csv，
-       系统保存面板会按 MIME 补扩展名（真机实测把 .txt 写成 .txt.csv）。S15 抓不到：
+    /* 只读屏的「导出原始存档」是四分片 JSON 信封，不能走 exportCsv——那条通道 MIME 写死 text/csv，
+       系统保存面板会按 MIME 补扩展名（真机实测把 .json 写成 .json.csv）。S15 抓不到：
        exportCsv 在 Java 侧确有声明，错的是通道选择而不是方法名。 */
     var ebs=String(exportBootStore);
-    T('K7 存档原文导出走 exportDoc + text/plain，不碰 CSV 通道',
-      ebs.indexOf('AndroidBridge.exportDoc(')>=0 && ebs.indexOf("'text/plain'")>=0
+    T('K7 存档原文导出走 exportDoc + application/json（四分片信封），不碰 CSV 通道',
+      ebs.indexOf('AndroidBridge.exportDoc(')>=0 && ebs.indexOf("'application/json'")>=0
       && ebs.indexOf('AndroidBridge.exportCsv(')<0,
-      'exportDoc='+(ebs.indexOf('AndroidBridge.exportDoc(')>=0)+' plain='+(ebs.indexOf("'text/plain'")>=0)+' csvCall='+(ebs.indexOf('AndroidBridge.exportCsv(')>=0));
-    T('K8 存档原文导出两处落盘名一致（Bridge 与浏览器兜底都是 .txt）',
-      (ebs.split('exdark_store_backup.txt').length-1)===2, ebs.split('exdark_store_backup.txt').length-1);
+      'exportDoc='+(ebs.indexOf('AndroidBridge.exportDoc(')>=0)+' json='+(ebs.indexOf("'application/json'")>=0)+' csvCall='+(ebs.indexOf('AndroidBridge.exportCsv(')>=0));
+    T('K8 存档原文导出两处落盘名单源：同一个 .json 名同时喂 Bridge 与浏览器兜底，无 .txt 残留',
+      ebs.indexOf("exdark_boot_backup_")>=0 && ebs.indexOf('AndroidBridge.exportDoc(name')>=0
+      && ebs.indexOf('a.download=name')>=0 && ebs.indexOf('.json')>=0 && ebs.indexOf('.txt')<0,
+      'name='+(ebs.indexOf('exdark_boot_backup_')>=0)+' bridgeName='+(ebs.indexOf('AndroidBridge.exportDoc(name')>=0)+' fallback='+(ebs.indexOf('a.download=name')>=0));
 
     SECT='L'; /* ===== L. 动作库 ===== */
     T('L1 动作总数 260', libTotal()===260, libTotal());
     T('L2 分类数 33', state.lib.cats.length===33, state.lib.cats.length);
-    T('L3 种子 8 周', state.structure.totalWeeks===8, state.structure.totalWeeks);
+    T('L3 种子周数与周表条目一致（不写死周数）', state.structure.totalWeeks===Object.keys(state.weeks).length && state.structure.totalWeeks>=1,
+      state.structure.totalWeeks+' 周 / '+Object.keys(state.weeks).length+' 条');
     T('L4 爆发体能域末位', state.lib.domains[4].id==='Power', state.lib.domains[4].id);
 
     SECT='M'; /* ===== M. v0.05 结构化能力 ===== */
@@ -506,8 +535,8 @@ let chrome = null, profDir = null;
     T('M7 bumpSet 已接 e1RM 账本', String(bumpSet).indexOf('logT1MainE1rm')>=0);
     T('M8 ARMOR 走独立看板（不回写 wk().A）', String(renderTelemetry).indexOf('renderArmorBoard')>=0 && String(openTeleSheet).indexOf('AUX')>=0, 'tele+teleSheet');
     T('M9 设置页分段器为 Tactile Pill', !!document.getElementById('langSeg') && !!document.getElementById('themeSeg'), 'langSeg/themeSeg');
-    T('M10 四路分片键位齐全（PREF 13 / WORK 16 / archive 独立）｜档位、场地、装备库、状态监控开关、计算器折叠、昵称进 prefs、写回审计与迁移台账、六边形记录 hpr 与伤病台账 health 进账本；v8 的 gpp/levelSnap 进账本且旧 aux 键已清',
-      PREF_KEYS.length===13 && WORK_KEYS.length===16
+    T('M10 四路分片键位齐全（PREF 14 / WORK 15 / archive 独立）｜档位、场地、器械档案 gearProfile、装备库、状态监控开关、计算器折叠、昵称进 prefs；写回审计与迁移台账、六边形记录 hpr 与伤病台账 health 进账本；旧 gearDefaults 已退役、不在任何一片',
+      PREF_KEYS.length===14 && WORK_KEYS.length===15
       && PREF_KEYS.indexOf('nick')>=0
       && PREF_KEYS.indexOf('lcOpen')>=0 && WORK_KEYS.indexOf('lcOpen')<0
       && WORK_KEYS.indexOf('gpp')>=0 && WORK_KEYS.indexOf('levelSnap')>=0 && WORK_KEYS.indexOf('aux')<0
@@ -518,8 +547,9 @@ let chrome = null, profDir = null;
       && PREF_KEYS.indexOf('venues')>=0 && PREF_KEYS.indexOf('activeVenueId')>=0
       && PREF_KEYS.indexOf('teleOn')>=0 && WORK_KEYS.indexOf('teleOn')<0
       && PREF_KEYS.indexOf('gearKit')>=0 && WORK_KEYS.indexOf('gearKit')<0
-      && WORK_KEYS.indexOf('gearDefaults')>=0 && WORK_KEYS.indexOf('migrateBackup')>=0
-      && PREF_KEYS.indexOf('gearDefaults')<0
+      && PREF_KEYS.indexOf('gearProfile')>=0 && WORK_KEYS.indexOf('gearProfile')<0
+      && WORK_KEYS.indexOf('migrateBackup')>=0
+      && WORK_KEYS.indexOf('gearDefaults')<0 && PREF_KEYS.indexOf('gearDefaults')<0
       && Object.keys(LS_BY_KIND).join(',')==='prefs,workout,lib,archive' && LS_BY_KIND.archive===LS_ARCHIVE
       && typeof libDiffOf==='function' && typeof applyLibDiff==='function'
       && typeof archivePush==='function' && typeof loadPlanArchive==='function'
@@ -924,6 +954,45 @@ let chrome = null, profDir = null;
     T('N22c 89.99 → 钻石 5★', calcGlRank(89.99).labelZh==='钻石 5★', calcGlRank(89.99).labelZh);
     T('N22d 90.00 → 王者 1★', calcGlRank(90.00).labelZh==='王者 1★', calcGlRank(90.00).labelZh);
     T('N22e 98.00 → 王者 5★', calcGlRank(98.00).labelZh==='王者 5★', calcGlRank(98.00).labelZh);
+    T('N22f 59.99 → 白银 5★', calcGlRank(59.99).labelZh==='白银 5★', calcGlRank(59.99).labelZh);
+    T('N22g 60.00 → 黄金 1★', calcGlRank(60.00).labelZh==='黄金 1★', calcGlRank(60.00).labelZh);
+    T('N22h 74.99 → 黄金 5★', calcGlRank(74.99).labelZh==='黄金 5★', calcGlRank(74.99).labelZh);
+    T('N22i 75.00 → 钻石 1★', calcGlRank(75.00).labelZh==='钻石 1★', calcGlRank(75.00).labelZh);
+    /* G9：RPE<5 只在估算里夹到 5，输入值不改写；提示一行、主流程不弹窗；中英都有文案。 */
+    T('N22j RPE 4.5：编辑器出「低于 5，按 5 估算」提示，e1RM 与同点 5 同值（中英各一次）', (function(){
+      var ok=false;
+      try{
+        var same=(e1rm(100,5,4.5)===e1rm(100,5,5));
+        openEditor(0);
+        var inp=document.getElementById('edRpe'); inp.value='4.5'; refreshConsole();
+        var zh=document.getElementById('edRpeNote').textContent;
+        setLang('en');
+        inp=document.getElementById('edRpe'); inp.value='4.5'; refreshConsole();
+        var en=document.getElementById('edRpeNote').textContent;
+        ok=same&&zh.indexOf('低于 5')>=0&&en.toLowerCase().indexOf('below 5')>=0;
+      }catch(e){}
+      try{setLang('zh');}catch(e){}
+      try{closeSheet('edSheet');}catch(e){}
+      return ok;
+    })());
+    /* G10：GL 性别下限在页面上的表达（不是拿 0 判成青铜 1★）。 */
+    T('N22k GL 下限页面：男 39.9 显示「—」并说明 40 kg，女 35 正常给分', (function(){
+      var p0=JSON.stringify(state.profile||{}), ok=false;
+      try{
+        state.profile.bw=39.9; state.profile.gender='M';
+        openProfile();
+        refreshProfileCoefs(); refreshGlHero();
+        var glM=(document.getElementById('coefGl')||{}).textContent||'';
+        var info=(document.getElementById('glInfo')||{}).textContent||'';
+        var rankM=(document.getElementById('lvlRankVal')||{}).textContent||'';
+        state.profile.bw=35; state.profile.gender='F';
+        refreshProfileCoefs(); refreshGlHero();
+        var glF=(document.getElementById('coefGl')||{}).textContent||'';
+        ok=(glM==='—')&&info.indexOf('40')>=0&&rankM.indexOf('不计分')>=0&&glF!=='—';
+      }catch(e){}
+      try{ closeAllSheets(); state.profile=JSON.parse(p0); renderAll(); }catch(e){}
+      return ok;
+    })());
 
     SECT='P'; /* 新资产 / Profile */
     T('P1 programLib 197 条', SEED.programLib.items.length===197, SEED.programLib.items.length);
@@ -1492,7 +1561,10 @@ let chrome = null, profDir = null;
     function Xset(o,f,v){ Xtouch.push([o,f,o[f]]); o[f]=v; }
     figWeekList().forEach(function(w){ const wk=state.weeks[String(w)]; if(!wk) return;
       dayIds().forEach(function(d){ const dd=wk[d]; if(!dd) return;
-        (dd.exercises||[]).forEach(function(e){ if(!anchorOf(e.cat)) return; Xset(e,'done',true); Xn++; }); }); });
+        (dd.exercises||[]).forEach(function(e){ if(!anchorOf(e.cat)) return; Xset(e,'done',true); Xn++;
+          /* 种子不再把计划目标 RPE 当实练值：图版夹具显式补一条逐组记录（实练 RPE=8），
+             与真机上用户点「+」后逐组录入的口径一致。 */
+          Xset(e,'setLog',[{kg:e.load,reps:e.reps,rpe:8,t:0}]); }); }); });
     var Xe1=[];
     ['sq','bp','dl'].forEach(function(k,ki){ var base=[150,100,180][ki];
       for(var w=1;w<=13;w+=3){ Xe1.push({id:'XE'+k+w,lift:k,week:w,day:'A',row:0,date:'2026-01-01',
@@ -1553,7 +1625,7 @@ let chrome = null, profDir = null;
       var sqDone=false;
       figWeekList().forEach(function(w){ const wk=state.weeks[String(w)]; if(!wk) return;
         dayIds().forEach(function(d){ const g=wk[d]; if(!g) return;
-          (g.exercises||[]).forEach(function(e){ if(!sqDone && anchorOf(e.cat)==='sq'){ Xset(e,'rpe',1); sqDone=true; } }); }); });
+          (g.exercises||[]).forEach(function(e){ if(!sqDone && anchorOf(e.cat)==='sq'){ Xset(e,'setLog',[{kg:e.load,reps:e.reps,rpe:1,t:0}]); sqDone=true; } }); }); });
       if(Xwk1&&Xwk1.B) Xset(Xwk1.B,'exercises',[]);
       (state.structure.blocks||[]).forEach(function(b,i){ if(i===0) Xset(b,'deloadWeeks',1); });
       Xset(state,'migrateReport',{v7:{fresh:false,atWeek:2}});   /* 逼 figE1 发 fx-mig，让 X5 的「定义必被用」踩全 */
@@ -1784,6 +1856,9 @@ let chrome = null, profDir = null;
     ];
     var Omk=function(sp,i){ var o={row:100+i, mode:sp.mode, cat:sp.cat, mv:sp.mv, load:sp.load,
       reps:sp.reps, rpe:sp.rpe, targetRpe:sp.tr, doneSets:sp.ds, done:sp.ds>0, notes:''};
+      /* 实练 RPE 走逐组记录（与真机口径一致）：rpe=0 的行表示未记录，落 null 而不是 0。 */
+      if(sp.ds>0) o.setLog=Array.from({length:sp.ds},function(){ return {kg:sp.load,reps:sp.reps,
+        rpe:(sp.rpe>0?sp.rpe:null),t:0}; });
       if(sp.gear) o.gear=sp.gear; return o; };
     var Osrc=Ospec.map(Omk);
     var Oprev=clone(Osrc);
@@ -2281,9 +2356,9 @@ let chrome = null, profDir = null;
       !F15r.skip && F15r.onKeep===true && F15r.offKeep===true,
       F15r.skip||('勾上后四字段原样='+F15r.onKeep+' 取消后原样='+F15r.offKeep));
     var F15src=YsrcOf('toggleDone');
-    T('F15c 满组数取自 setsOf(e.mode)：与卡片 SET N/total、bumpSet 同源，AMRAP 也走这一条，无写死组数',
-      F15src.indexOf('setsOf(e.mode)')>=0 && F15src.indexOf('e.doneSets=e.done?total:0')>=0,
-      'setsOf命中='+(F15src.indexOf('setsOf(e.mode)')>=0)+' 满组赋值命中='+(F15src.indexOf('e.doneSets=e.done?total:0')>=0));
+    T('F15c 满组数取自 setsOf(e.mode, e.sets)：与卡片 SET N/total、bumpSet 同源，AMRAP 也走这一条，无写死组数',
+      F15src.indexOf('setsOf(e.mode, e.sets)')>=0 && F15src.indexOf('e.doneSets=e.done?total:0')>=0,
+      'setsOf命中='+(F15src.indexOf('setsOf(e.mode, e.sets)')>=0)+' 满组赋值命中='+(F15src.indexOf('e.doneSets=e.done?total:0')>=0));
 
     /* ===== T. 环境配置 hub：配片库存 / 六类本地计算器 / 地点网格 ===== */
     SECT='T';
@@ -2297,9 +2372,11 @@ let chrome = null, profDir = null;
           .every(function(k){ return !!seen[k]; }); })(),
       LC_TYPES.map(function(t){ return t.k; }).join(','));
     openEditor(0);
-    T('T2 每开一行计算器都回到默认：类型是插片、逐档输入只有一排（参数从不跨行留着）',
+    openToolLoad();
+    T('T2 每次打开配片计算器都回到默认：类型是插片、逐档输入只有一排（参数从不跨次留着）',
       _lcType==='stack' && Array.isArray(_lcVal.pins) && _lcVal.pins.length===1,
       _lcType+' / pins=' + JSON.stringify(_lcVal.pins));
+    closeSheet('toolLoadSheet');
     /* 公式逐类验：值故意给成字符串，顺带证明输入解析走的是同一条路 */
     var lcSet=function(k,v){ _lcType=k; _lcVal=v; };
     lcSet('stack',{stacks:'2',plateKg:'2.5',pins:['5','7'],base:'10'});
@@ -2318,18 +2395,23 @@ let chrome = null, profDir = null;
     lcSet('manual',{manual:'47.5',memo:'只写备注不写重量'});
     T('T8 特殊器械 = 手动总重，备注不参与计算', lcTotal()===47.5, lcTotal());
     var Tpre=JSON.stringify(state), TprA=localStorage.getItem(LS_PREFS), TwkA=localStorage.getItem(LS_WORK);
-    fillLoadFromCalc();
-    T('T9 点「填入载荷」只动 #edLoad 那一格：账本与两处分片一字未改，不保存就不落账',
-      String(document.getElementById('edLoad').value)==='47.5' && JSON.stringify(state)===Tpre
+    openToolLoad();
+    var T9sel=document.getElementById('toolLoadType');
+    T9sel.value='manual'; T9sel.dispatchEvent(new Event('change'));
+    var T9man=document.querySelector('#toolLoadBody [data-lc="manual"]');
+    T9man.value='47.5'; T9man.dispatchEvent(new Event('input'));
+    var T9tot=lcTotal();
+    T('T9 配片计算器只算不写盘：输入改动只落在模块变量，账本与两处分片一字未改',
+      _lcType==='manual' && T9tot===47.5 && JSON.stringify(state)===Tpre
       && localStorage.getItem(LS_PREFS)===TprA && localStorage.getItem(LS_WORK)===TwkA,
-      'edLoad=' + document.getElementById('edLoad').value
+      'tot=' + T9tot
       + ' 账本变动=' + (JSON.stringify(state)!==Tpre)
       + ' 分片变动=' + (localStorage.getItem(LS_PREFS)!==TprA || localStorage.getItem(LS_WORK)!==TwkA));
+    closeSheet('toolLoadSheet');
     /* ===== F13 + F14（器械 UI 止血）：横杆只属于杠铃 / 「低于空杆重量」不外泄 / 计算器按 kind 折叠 =====
        编辑器此刻是开着的（openEditor(0) 在 T2），setGearKind 直接驱动当前这条动作的器械口径；
        改到的 gear/load 由段末 state=Tbak 兜底还原，防抖句柄在本块尾清掉，不留悬空落盘。 */
     var pvBar=document.getElementById('edPlateBar');
-    var lcalcBox=document.querySelector('.lcalc');
     var sleeveByKind={}, noteLeak=[];
     ['barbell','plate','stack','dumbbell','bw','special'].forEach(function(k){
       setGearKind(k);
@@ -2347,36 +2429,40 @@ let chrome = null, profDir = null;
     T('T9c F13 杠铃空载仍如实报「低于空杆重量」（这条警告没被一刀切删掉，只是不再串到非杠铃）',
       platesPerSide(10,false).note.indexOf('低于空杆重量')>=0, platesPerSide(10,false).note);
     var T9fold={};
+    openSettings();
     ['barbell','plate','stack','dumbbell','bw','special'].forEach(function(k){
-      setGearKind(k); T9fold[k]=lcalcBox.classList.contains('collapsed');
+      setGearKind(k);
+      T9fold[k]=document.getElementById('setToolsCard').classList.contains('collapsed');
     });
-    T('T9d F14 计算器默认收起，且不随器械 kind 自动展开（六类都折叠，唯一出处是用户偏好）',
+    T('T9d F14 工具区默认收起，且不随器械 kind 自动展开（六类都折叠，唯一出处是用户偏好）',
       ['barbell','plate','stack','dumbbell','bw','special'].every(function(k){ return T9fold[k]===true; })
       && state.lcOpen!==true,
       ['barbell','plate','stack','dumbbell','bw','special'].map(function(k){ return k+':'+(T9fold[k]?'折叠':'展开'); }).join(' '));
     setGearKind('stack');
-    var T9eBody=getComputedStyle(document.getElementById('lcBody')).display;
-    T('T9e F14 切到插片仍保持收起（折叠钮 aria-expanded=false + 输入区 display:none）',
-      lcalcBox.classList.contains('collapsed')
-      && document.getElementById('lcTogBtn').getAttribute('aria-expanded')==='false'
+    var T9eBox=document.getElementById('setToolsCard');
+    var T9eBody=getComputedStyle(document.getElementById('setToolsBody')).display;
+    T('T9e F14 切到插片仍保持收起（折叠钮 aria-expanded=false + 工具区 display:none）',
+      T9eBox.classList.contains('collapsed')
+      && document.getElementById('setToolsChev').getAttribute('aria-expanded')==='false'
       && T9eBody==='none',
-      'collapsed='+lcalcBox.classList.contains('collapsed')+' aria='+document.getElementById('lcTogBtn').getAttribute('aria-expanded')+' lcBody='+T9eBody);
-    lcToggle();
+      'collapsed='+T9eBox.classList.contains('collapsed')+' aria='+document.getElementById('setToolsChev').getAttribute('aria-expanded')+' body='+T9eBody);
+    toggleToolsFold();
     var T9fExpand=prefsOf().lcOpen;
-    T('T9f F14 手动展开落地并把状态写进 prefs（aria-expanded=true + 输入区可见 + lcOpen=true）',
-      !lcalcBox.classList.contains('collapsed')
-      && document.getElementById('lcTogBtn').getAttribute('aria-expanded')==='true'
-      && getComputedStyle(document.getElementById('lcBody')).display!=='none'
+    T('T9f F14 手动展开落地并把状态写进 prefs（aria-expanded=true + 工具区可见 + lcOpen=true）',
+      !T9eBox.classList.contains('collapsed')
+      && document.getElementById('setToolsChev').getAttribute('aria-expanded')==='true'
+      && getComputedStyle(document.getElementById('setToolsBody')).display!=='none'
       && state.lcOpen===true && T9fExpand===true,
-      'collapsed='+lcalcBox.classList.contains('collapsed')+' prefs.lcOpen='+T9fExpand);
-    lcToggle();
-    var T9gFolded=lcalcBox.classList.contains('collapsed'), T9gSt=state.lcOpen, T9gPr=prefsOf().lcOpen;
-    lcToggle();
+      'collapsed='+T9eBox.classList.contains('collapsed')+' prefs.lcOpen='+T9fExpand);
+    toggleToolsFold();
+    var T9gFolded=T9eBox.classList.contains('collapsed'), T9gSt=state.lcOpen, T9gPr=prefsOf().lcOpen;
+    toggleToolsFold();
     T('T9g F14 折叠钮成对可逆：展开→收起写回 false，再点一下回到展开（状态与 prefs 同步翻）',
       T9gFolded===true && T9gSt===false && T9gPr===false
-      && !lcalcBox.classList.contains('collapsed') && prefsOf().lcOpen===true
-      && document.getElementById('lcTogBtn').getAttribute('aria-expanded')==='true',
-      '首点折叠='+T9gFolded+' 折叠态='+T9gSt+' 再点展开='+(!lcalcBox.classList.contains('collapsed')));
+      && !T9eBox.classList.contains('collapsed') && prefsOf().lcOpen===true
+      && document.getElementById('setToolsChev').getAttribute('aria-expanded')==='true',
+      '首点折叠='+T9gFolded+' 折叠态='+T9gSt+' 再点展开='+(!T9eBox.classList.contains('collapsed')));
+    closeSheet('setSheet');
     setGearKind('barbell');   /* 归回杠铃口径，剩下交段末 state=Tbak 兜底 */
     if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
     closeSheet('edSheet');
@@ -2447,18 +2533,18 @@ let chrome = null, profDir = null;
     T('T18 库存芯片一个片重一枚，且与片表同源（不手抄 11）',
       Tchips===PLATES.length && Tchips===PLATE_KGS.length, Tchips + '/' + PLATES.length);
     closeSheet('envSheet');
-    setLang('en'); applyChrome(); openEnvSheet(); openEditor(0);
-    var TenIds=['lcTitleLbl','lcFillBtn','lcDisc','setPlateT','setPlateS','setLocT','setLocS','envNote'];
+    setLang('en'); applyChrome(); openEnvSheet(); openToolLoad();
+    var TenIds=['toolLoadTitle','toolLoadTypeT','toolLoadClose','setPlateT','setPlateS','setLocT','setLocS','envNote'];
     var TenBad=TenIds.filter(function(id){ var v=txt(id); return !v || HAN.test(v); });
     /* 动态那批（六类名称 + 当前类型的字段名）判的是渲染出来的 DOM，不是名单里的中文项 */
-    var TenDyn=Array.prototype.map.call(document.querySelectorAll('#lcType option'),function(o){ return o.textContent; })
-      .concat(Array.prototype.map.call(document.querySelectorAll('#lcBody .lc-fld label'),function(l){ return l.textContent; }));
+    var TenDyn=Array.prototype.map.call(document.querySelectorAll('#toolLoadType option'),function(o){ return o.textContent; })
+      .concat(Array.prototype.map.call(document.querySelectorAll('#toolLoadBody .lc-fld label'),function(l){ return l.textContent; }));
     var TenHan=TenDyn.filter(function(s){ return HAN.test(s); });
-    T('T19 双语：环境 hub 静态标签 + 计算器渲染出的六类名与字段名，在英文态零汉字且非空',
+    T('T19 双语：环境 hub 静态标签 + 配片计算器渲染出的六类名与字段名，在英文态零汉字且非空',
       TenBad.length===0 && TenHan.length===0 && TenDyn.length===6+4
       && TenDyn.every(function(s){ return String(s).trim().length>0; }),
       '静态缺/脏=' + (TenBad.join(',')||'无') + ' 动态条数=' + TenDyn.length + ' 含汉字=' + (TenHan.join(',')||'无'));
-    closeSheet('edSheet'); closeSheet('envSheet'); setLang('zh'); applyChrome();
+    closeSheet('toolLoadSheet'); closeSheet('envSheet'); setLang('zh'); applyChrome();
     state=Tbak;
     if(Tpr0===null) localStorage.removeItem(LS_PREFS); else localStorage.setItem(LS_PREFS,Tpr0);
     if(Twk0===null) localStorage.removeItem(LS_WORK); else localStorage.setItem(LS_WORK,Twk0);
@@ -2572,6 +2658,9 @@ let chrome = null, profDir = null;
           e.reps=(i%3===0)?reps:Math.max(1,reps-1);
           e.targetRpe=tr;
           e.rpe=(i%4===0)?Math.max(1,tr-1):((i%4===1)?tr:((i%4===2)?tr+0.8:+Qar.rpe_hard_stop+0.3));
+          /* 实练 RPE 走逐组记录（与真机口径一致）：没有 setLog 时「rpe===targetRpe」会被判未记录 */
+          e.setLog=[];
+          for(var z=0;z<(e.doneSets||0);z++) e.setLog.push({kg:e.load,reps:e.reps,rpe:e.rpe,t:0});
           n++;
         });
       });
@@ -2820,6 +2909,7 @@ let chrome = null, profDir = null;
       '重叠='+(LDovl.join(',')||'无')+' 未归类='+(LDgap.join(',')||'无')+' 顶层='+LDtop.join(','));
 
     var LDerr='', LDbad=null, LDgood=null, LDrefused=null;
+    var LDgp0=JSON.stringify(state.gearProfile||{});
     try{
       var LDict=xStateToPlanDict(state);
       var LDapBak=archivePush;
@@ -2844,6 +2934,10 @@ let chrome = null, profDir = null;
       +' 拒收态='+String(LDrefused&&LDrefused.archErr).slice(0,24)
       +' 注(坏)='+LDnBad.slice(0,34)+' 注(好)="'+LDnGood+'" 调用点='+LDsites+'/7');
 
+    T('LD1b 换计划保留器械档案 gearProfile（不随计划清空），gearDefaults 退役后不在运行时账本',
+      !!LDgood && JSON.stringify(state.gearProfile||{})===LDgp0 && state.gearDefaults===undefined,
+      'g0='+LDgp0.slice(0,32)+' g1='+JSON.stringify(state.gearProfile||{}).slice(0,32)
+      +' gearDefaults='+String(state.gearDefaults));
     var LDstep=(PLAN_SCHEMA.conflict_policy||{}).round_step_kg;
     var LDmidSnap='', LDbpSnap='', LDzBad=[], LDzLoad=null, LDz0=null, LDz1=null;
     var LDsqCell=null, LDbpCell=null;
@@ -3858,20 +3952,22 @@ let chrome = null, profDir = null;
       &&document.documentElement.innerHTML.indexOf('.recent-grid')<0,
       'fn='+(typeof recentTraining));
     var HXlcBak=state.lcOpen;
-    openEditor(0);
-    var HXbox=document.querySelector('.lcalc');
+    openSettings();
+    var HXbox=document.getElementById('setToolsCard');
     var HXl1=!!HXbox&&HXbox.classList.contains('collapsed')&&state.lcOpen!==true;
-    lcToggle();
+    toggleToolsFold();
     var HXl2=!!HXbox&&!HXbox.classList.contains('collapsed')&&state.lcOpen===true
-      &&prefsOf().lcOpen===true&&getComputedStyle(document.getElementById('lcBody')).display!=='none';
-    lcToggle();
+      &&prefsOf().lcOpen===true&&getComputedStyle(document.getElementById('setToolsBody')).display!=='none';
+    toggleToolsFold();
     var HXl3=!!HXbox&&HXbox.classList.contains('collapsed')&&state.lcOpen===false&&prefsOf().lcOpen===false;
-    lcToggle();
+    toggleToolsFold();
     var HXl4=!!HXbox&&!HXbox.classList.contains('collapsed')&&state.lcOpen===true;
-    T('HX12 配重计算器默认收起、展开/收起成对可逆，且状态写进 prefs（下次打开沿用）',
+    T('HX12 配重工具区默认收起、展开/收起成对可逆，且状态写进 prefs（下次打开沿用）',
       HXl1&&HXl2&&HXl3&&HXl4,
       '默认折='+HXl1+' 展='+HXl2+' 收='+HXl3+' 再展='+HXl4);
+    closeSheet('setSheet');
     state.lcOpen=HXlcBak;
+    openEditor(0);
     state.weeks=HXwk0; state.e1rmLog=HXeLog0; state.structure=HXstr0;
     var HXidx0=-1, HXe0=null, HXsets0=0;
     for(var HXi=0; HXi<day().exercises.length; HXi++){
@@ -3886,42 +3982,55 @@ let chrome = null, profDir = null;
       setGearKind('dumbbell');
       setGearField({sides:2,incrementKg:2.5});
       HXe0.load=15; refreshConsole();
-      var HXn2=document.querySelectorAll('#edPlateBar .db-cell').length;
-      var HXb2=!!HXpv.querySelector('.geg-badge');
+      var HXn2=document.querySelectorAll('#edPlateBar [data-gz="dumb"]').length;
+      var HXb2=!!HXpv.querySelector('[data-gz="dumb"] [data-side="2"]');
       var HXs2=HXpv.textContent.indexOf('双手总重 '+fmtStep(30)+'kg')>=0;
       setGearSides(1);
-      var HXn1=document.querySelectorAll('#edPlateBar .db-cell').length;
-      var HXb1=!!HXpv.querySelector('.geg-badge');
-      var HXs1=HXpv.textContent.indexOf('单边总重 '+fmtStep(15)+'kg')>=0;
+      var HXn1=document.querySelectorAll('#edPlateBar [data-gz="dumb"]').length;
+      var HXb1=!!HXpv.querySelector('[data-gz="dumb"] [data-side="2"]');
+      var HXs1=HXpv.textContent.indexOf(fmtStep(15)+'kg 单边')>=0
+        &&HXpv.textContent.indexOf('总重 '+fmtStep(15)+'kg')>=0;
       setGearSides(2);
-      /* 双手只画一枚哑铃 + ×2 徽标，不再并排重复第二枚；单手时徽标消失。 */
+      var HXdbDbg='k='+gearOf(HXe0).kind+' sides='+gearOf(HXe0).sides
+        +' n='+HXn2+' b2='+HXb2+' s2='+HXs2+' n1='+HXn1+' b1='+HXb1+' s1='+HXs1
+        +' html='+String(HXpv.innerHTML||'').slice(0,90);
+      /* 双手＝两只独立哑铃上下排（真有第二枚的 data-side），单手只剩一枚；两态都不是杠铃杆 */
       HXdbOK=HXn2===1&&HXb2&&HXs2&&HXn1===1&&!HXb1&&HXs1&&gearOf(HXe0).sides===2
-        &&!HXpv.querySelector('.pv-sleeve')&&HXpv.className.indexOf('no-sleeve')>=0;
+        &&!!HXpv.querySelector('.gz-figure')&&!HXpv.querySelector('.pv-sleeve');
       setGearKind('bw');
       day().bw=100;
       HXe0.load=15; refreshConsole();
       var HXp1=HXpv.textContent.indexOf('加重 +'+fmtStep(15)+'kg')>=0
-        &&HXpv.textContent.indexOf('净 '+fmtStep(115)+'kg')>=0&&!!HXpv.querySelector('.bw-fig.is-plus svg');
+        &&HXpv.textContent.indexOf('净 '+fmtStep(115)+'kg')>=0
+        &&!!HXpv.querySelector('[data-gz="bw"][data-mode="plus"]');
       HXe0.load=-10; refreshConsole();
-      var HXp2b=HXpv.textContent.indexOf('辅助 −'+fmtStep(10)+'kg')>=0&&!!HXpv.querySelector('.bw-fig.is-assist');
+      var HXp2b=HXpv.textContent.indexOf('辅助 −'+fmtStep(10)+'kg')>=0
+        &&!!HXpv.querySelector('[data-gz="bw"][data-mode="assist"]');
       HXe0.load=0; refreshConsole();
-      var HXp3=HXpv.textContent.indexOf('自重')>=0&&HXpv.textContent.indexOf('净 '+fmtStep(100)+'kg')>=0;
-      HXbwOK=HXp1&&HXp2b&&HXp3&&!HXpv.querySelector('.pv-sleeve')&&HXpv.className.indexOf('no-sleeve')>=0;
+      var HXp3=HXpv.textContent.indexOf('自重')>=0&&HXpv.textContent.indexOf('净 '+fmtStep(100)+'kg')>=0
+        &&!!HXpv.querySelector('[data-gz="bw"][data-mode="pure"]');
+      HXbwOK=HXp1&&HXp2b&&HXp3&&!!HXpv.querySelector('.gz-figure')&&!HXpv.querySelector('.pv-sleeve');
+      var HXbwDbg='p1='+HXp1+' p2='+HXp2b+' p3='+HXp3
+        +' html='+String(HXpv.innerHTML||'').slice(0,90);
       HXtd=JSON.stringify(HXe0);
-      var HXeSnap={done:HXe0.done,ds:HXe0.doneSets};
+      var HXeSnap={done:HXe0.done,ds:HXe0.doneSets,
+        hsl:('setLog' in HXe0),
+        sl:HXe0.setLog?JSON.parse(JSON.stringify(HXe0.setLog)):null};
       toggleDone(HXidx0);
       var HXtdA=HXe0.done===true&&HXe0.doneSets===HXsets0;
       toggleDone(HXidx0);
-      /* 勾回原位：✅ 只该动 done/doneSets——把这两格按快照放回（含 done 原本无键的情况），
+      /* 勾回原位：✅ 只该动 done/doneSets 与逐组记录 setLog（勾满补齐、取消清空），
          其余字段必须一字未动，逐字节比对才作数。 */
       if(HXeSnap.done===undefined) delete HXe0.done; else HXe0.done=HXeSnap.done;
       if(HXeSnap.ds===undefined) delete HXe0.doneSets; else HXe0.doneSets=HXeSnap.ds;
+      if(!HXeSnap.hsl) delete HXe0.setLog; else HXe0.setLog=HXeSnap.sl;
       HXobjA=JSON.stringify(HXe0);
       HXobjB=JSON.stringify(state.e1rmLog);
     }
-    T('HX13 哑铃只画一枚 + ×N 徽标（单手无徽标）并分列单边/总重、自重人形三态（加重/辅助/自重）带净负荷——两类都不是杠铃杆；✅ 勾满组再勾归零逐字节还原、e1RM 台账零写入',
+    T('HX13 哑铃双手＝两只独立哑铃（data-side 真有第二枚）、单手只剩一枚，两种状态都分列单边/总重；自重人形三态（加重/辅助/自重）带净负荷——两类都不是杠铃杆；✅ 勾满组再勾归零逐字节还原、e1RM 台账零写入',
       HXidx0>=0&&HXdbOK&&HXbwOK&&HXtdA&&HXtd===HXobjA&&HXobjB===HXeLogR0,
-      'idx='+HXidx0+' 哑铃='+HXdbOK+' 自重='+HXbwOK+' 勾选还原='+(HXtd===HXobjA));
+      'idx='+HXidx0+' 哑铃='+HXdbOK+' 自重='+HXbwOK+' 勾选还原='+(HXtd===HXobjA)
+      +' || dbg['+HXdbDbg+'] bw['+HXbwDbg+']');
     var HXr15=JSON.parse(HXs0);
     Object.keys(state).forEach(function(k){ if(!(k in HXr15)) delete state[k]; });
     Object.keys(HXr15).forEach(function(k){ delete state[k]; state[k]=HXr15[k]; });
@@ -4071,11 +4180,298 @@ let chrome = null, profDir = null;
     Object.keys(state).forEach(function(k){ if(!(k in HLr)) delete state[k]; });
     Object.keys(HLr).forEach(function(k){ delete state[k]; state[k]=HLr[k]; });
 
-    /* 本条自身也算一项，故判断时先排除自己（EXP_N 含本条）。 */
+    /* ===== SL. 逐组落库（A 口径：一组一点） =====
+       一张卡只记「这一组」：kg / 次数取当前值、RPE 留空；编辑器列出已记录每一组可逐组改；
+       导出与 e1RM 都读同一份 setLog（CSV 不加列，取末组 + 完成组数）。 */
+    SECT='SL';
+    var SLs0=JSON.stringify(state), SLping0=_dayPinged;
+    if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+    var SLex=(day().exercises||[])[0];
+    var SLtot=SLex?setsOf(SLex.mode,SLex.sets):0;
+    var SLr1=null, SLr2=null, SLr3=null, SLr4=null, SLr5=null;
+    if(SLex){
+      delete SLex.setLog; SLex.done=false; SLex.doneSets=0;
+      if(!(+SLex.reps>0)) SLex.reps=1;
+      var SLkg=Math.round((+effectiveLoad(SLex)||0)*100)/100;
+      bumpSet(0,1);
+      var SLg0=SLex.setLog[0]||{};
+      SLr1={n:SLex.setLog.length,kg:SLg0.kg,want:SLkg,reps:SLg0.reps,wr:SLex.reps,hasRpe:('rpe' in SLg0),rpe:SLg0.rpe};
+      bumpSet(0,1);
+      var SLn2=SLex.setLog.length;
+      bumpSet(0,-1);
+      SLr2={n2:SLn2,want2:Math.min(SLtot,2),n3:SLex.setLog.length,want3:Math.max(0,Math.min(SLtot,2)-1),ds:SLex.doneSets};
+      /* 编辑器：两条记录 → 两行、六个输入；逐组改只落在该组 */
+      SLex.setLog=[{kg:100,reps:5,rpe:null},{kg:95,reps:4,rpe:8.5}]; SLex.doneSets=2;
+      openEditor(0);
+      var SLrowsDom=document.querySelectorAll('#edSetLog .slog-grid').length;
+      var SLins=document.querySelectorAll('#edSetLog .slog-in').length;
+      var SLfake=function(k,f,v){ return {value:String(v),getAttribute:function(a){
+        return a==='data-k'?String(k):(a==='data-f'?f:null);}}; };
+      editSetField(SLfake(1,'reps',3));
+      editSetField(SLfake(1,'rpe',9));
+      var SLkeepLoad=SLex.load;
+      SLr3={rows:SLrowsDom,ins:SLins,s1r:SLex.setLog[0].reps,s1p:SLex.setLog[0].rpe,
+            s2r:SLex.setLog[1].reps,s2p:SLex.setLog[1].rpe,loadSame:SLex.load===SLkeepLoad};
+      /* 导出：计划 Workouts 行 + 26 列统一 CSV 都取末组 / 条数 */
+      var SLrc=PLAN_SCHEMA.sheets.Workouts.role_columns;
+      var SLwrows=xWorkoutRows(state,PLAN_SCHEMA), SLrow=null, SLk;
+      for(SLk=0;SLk<SLwrows.length;SLk++){
+        var SLrr=SLwrows[SLk];
+        if(+SLrr[SLrc.week]===+state.week && SLrr[SLrc.day]===state.day){ SLrow=SLrr; break; }
+      }
+      var SLcsv=unifiedRecords(), SLrec=null;
+      for(SLk=0;SLk<SLcsv.length;SLk++){
+        var SLq=SLcsv[SLk];
+        if(SLq.record_type==='EXERCISE' && +SLq.week===+state.week && SLq.day===state.day){ SLrec=SLq; break; }
+      }
+      SLr4={rep:SLrow?SLrow[SLrc.actual_reps]:null,rpe:SLrow?SLrow[SLrc.actual_rpe]:null,
+            ds:SLrow?SLrow[SLrc.done_sets]:null,
+            csvRep:SLrec?SLrec.last_reps:null,csvRpe:SLrec?SLrec.actual_rpe:null};
+      /* ✅ 满组：setLog 补齐到计划组数且 RPE 全空；取消清空 */
+      SLex.setLog=[]; SLex.doneSets=0; SLex.done=false;
+      toggleDone(0);
+      SLr5={n:SLex.setLog.length,ds:SLex.doneSets,total:SLtot,
+            allNull:SLex.setLog.every(function(s){return s.rpe===null;})};
+      toggleDone(0);
+      SLr5.n2=SLex.setLog.length; SLr5.ds2=SLex.doneSets;
+    }
+    T('SL1 卡片「+」= 记下这一组：一条、kg/次数取当前值、RPE 留空（null，不预填也不兜底 8）',
+      !!SLr1 && SLr1.n===1 && SLr1.kg===SLr1.want && SLr1.reps===+SLr1.wr && SLr1.hasRpe && SLr1.rpe===null,
+      SLr1?('条数='+SLr1.n+' kg='+SLr1.kg+'/'+SLr1.want+' reps='+SLr1.reps+'/'+SLr1.wr+' rpe='+String(SLr1.rpe)):'无动作行');
+    T('SL2 「−」撤末条，组数只由 setLog 条数派生（doneSets 与条数同值，不超过计划组数）',
+      !!SLr2 && SLr2.n2===SLr2.want2 && SLr2.n3===SLr2.want3 && SLr2.ds===SLr2.n3,
+      SLr2?('加后='+SLr2.n2+'/'+SLr2.want2+' 撤后='+SLr2.n3+'/'+SLr2.want3+' doneSets='+SLr2.ds):'无动作行');
+    T('SL3 编辑器列出已记录的每一组（两行六格），逐组改只落在该组、卡片载荷不被改写',
+      !!SLr3 && SLr3.rows===2 && SLr3.ins===6 && SLr3.s1r===5 && SLr3.s1p===null
+      && SLr3.s2r===3 && SLr3.s2p===9 && SLr3.loadSame===true,
+      SLr3?('行='+SLr3.rows+' 输入='+SLr3.ins+' 组1='+SLr3.s1r+'/'+String(SLr3.s1p)+' 组2='+SLr3.s2r+'/'+SLr3.s2p):'无动作行');
+    T('SL4 导出取末组 + 完成组数：Workouts 行与 26 列 CSV 同读 setLog（末组 3 次 / RPE 9 / 2 组）',
+      !!SLr4 && SLr4.rep===3 && SLr4.rpe===9 && SLr4.ds===2 && SLr4.csvRep===3 && SLr4.csvRpe===9,
+      SLr4?('行='+SLr4.rep+'/'+SLr4.rpe+'/'+SLr4.ds+' csv='+SLr4.csvRep+'/'+SLr4.csvRpe):'无动作行');
+    T('SL5 ✅ 满组补齐 setLog 到计划组数（RPE 全空），取消清空且 doneSets=0',
+      !!SLr5 && SLr5.n===SLr5.total && SLr5.ds===SLr5.total && SLr5.allNull===true
+      && SLr5.n2===0 && SLr5.ds2===0,
+      SLr5?('勾上='+SLr5.n+'/'+SLr5.total+' 全空='+SLr5.allNull+' 取消='+SLr5.n2+'/'+SLr5.ds2):'无动作行');
+    T('W5a 取重口径 A：已有落档按当时 kg（换器械/换档位表不追溯），无落档退回 Effective；CSV notes 带口径戳且可剥回原文',
+      (function(){
+        var g1={kind:'barbell',barKg:20,collarOn:true};
+        var e1={mode:'T1.Mod',reps:5,load:100,gear:g1,setLog:[{kg:102.5,reps:5,rpe:8,src:'achieved',basis:'barbell:bar20+c'}]};
+        var e2={mode:'T1.Mod',reps:5,load:100,gear:g1};
+        var b1=basisKgOf(e1), b2=basisKgOf(e2), ip=e1rmInputOf(e1);
+        var nt=basisNoteFor(e1), nt2=basisNoteFor(e2);
+        e1.gear={kind:'stack',ladder:0,stackPins:[5]};   /* 历史行的读数不能因换表而变 */
+        return b1.kg===102.5 && b1.src==='achieved' && basisKgOf(e1).kg===102.5
+          && ip.kg===102.5 && ip.src==='achieved'
+          && b2.src==='effective' && b2.kg===effectiveLoad(e2)
+          && nt==='[basis=achieved;barbell:bar20+c]' && nt2.indexOf('[basis=effective;')===0
+          && stripCsvMarkers('备注 '+nt)==='备注' && stripCsvMarkers(nt)==='';
+      })());
+    var SLr=JSON.parse(SLs0);
+    Object.keys(state).forEach(function(k){ if(!(k in SLr)) delete state[k]; });
+    Object.keys(SLr).forEach(function(k){ delete state[k]; state[k]=SLr[k]; });
+    _dayPinged=SLping0;
+    if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+    stopTimer();
+    closeSheet('edSheet');
+
+    /* ===== RP. 实练 RPE 不凭空写：计划目标只做展示，实练 RPE 只认用户输入 =====
+       空 = 未记录（界面显示占位，不显示 8 / 7.5）；估值不拿 targetRpe / 10 兜底。 */
+    SECT='RP';
+    var RPs0=JSON.stringify(state), RPping0=_dayPinged;
+    if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+    var RPex=(day().exercises||[])[0], RPr={};
+    if(RPex){
+      RPex.targetRpe=7.5; delete RPex.rpe;
+      RPex.setLog=[{kg:100,reps:5,rpe:null,t:1}]; RPex.doneSets=1; RPex.done=true;
+      var RPid='W'+state.week+'_'+state.day+'_'+(RPex.row||0)+'_'+RPex.mv;
+      var RPfind=function(){ var a=state.e1rmLog||[]; for(var z=0;z<a.length;z++) if(a[z].id===RPid) return a[z]; return null; };
+      openEditor(0);
+      var RPel=document.getElementById('edRpe');
+      RPr.empty=(RPel.value==='');
+      RPr.ph=RPel.placeholder||'';
+      RPr.e1txt=String(document.getElementById('edE1').textContent||'');
+      RPr.tgt=String(document.getElementById('edTgtRpeBtn').textContent||'');
+      /* 不改任何 RPE 直接保存：e.rpe 键不应出现，账本记 null + rpeAssumed */
+      saveEditor(false);
+      RPr.noKey=!('rpe' in RPex);
+      var RPr1=RPfind();
+      RPr.recRpe=RPr1?RPr1.rpe:'(无)';
+      RPr.recAssumed=RPr1?RPr1.rpeAssumed:'(无)';
+      RPr.recE1=RPr1?RPr1.e1rm:0;
+      /* 用户实填 9 后才生效：末组与账本都读它 */
+      openEditor(0);
+      document.getElementById('edRpe').value='9';
+      saveEditor(false);
+      var RPr2=RPfind();
+      RPr.userRpe=RPex.setLog[0].rpe;
+      RPr.cardRpe=RPex.rpe;
+      RPr.recRpe2=RPr2?RPr2.rpe:'(无)';
+      RPr.recE1b=RPr2?RPr2.e1rm:0;
+      RPr.fA=e1rm(100,5,null,null);
+      RPr.fB=e1rm(100,5,null,7.5);
+      RPr.fC=e1rm(100,5,8,7.5);
+      /* CSV 回灌同样是「空就是空」：actual_rpe 空不能补成 10 */
+      var RP5id='W1_A_99_RPBS';
+      var RP5rec={schema_ver:CSV_VER,record_type:'E1RM_LOG',week:1,day:'A',row_idx:99,date:'2026-01-01',
+        mode:'T1.Sq',category:'T1.Sq',movement:'RPBS',load_kg:100,last_reps:5,actual_rpe:'',e1rm_kg:116.7,notes:''};
+      doImportCsvText(CSV_COLS.join(',')+'\\n'+csvRow(RP5rec)+'\\n');
+      var RP5got=(state.e1rmLog||[]).filter(function(x){return x.id===RP5id;})[0];
+      RPr.csvNoRpe=!!(RP5got&&RP5got.rpe===null&&RP5got.rpeAssumed===true);
+    }
+    T('RP1 打开编辑器不预填实练 RPE：空值 + 「未记录」占位，计划目标 7.5 只出现在目标钮上',
+      !!RPr.empty && RPr.ph.indexOf('未记录')>=0 && RPr.e1txt.indexOf('未记录')>=0
+      && RPr.tgt.indexOf('7.5')>=0 && RPr.tgt.indexOf('9')<0,
+      RPr?('值空='+RPr.empty+' 占位='+RPr.ph+' 预览='+RPr.e1txt.slice(0,26)+' 目标钮='+RPr.tgt):'无动作行');
+    T('RP2 空 RPE 保存不写 8：e 上无 rpe 键，账本 rpe=null、rpeAssumed=true，估值=无 RPE 原式 116.7',
+      !!RPr.noKey && RPr.recRpe===null && RPr.recAssumed===true && RPr.recE1===116.7,
+      RPr?('无键='+RPr.noKey+' 账本 rpe='+String(RPr.recRpe)+' assumed='+String(RPr.recAssumed)+' e1RM='+RPr.recE1):'无动作行');
+    T('RP3 实练 RPE 只在用户填了 9 后才生效：末组 / 卡片 / 账本同读 9，估值 120.0',
+      RPr.userRpe===9 && RPr.cardRpe===9 && RPr.recRpe2===9 && RPr.recE1b===120,
+      RPr?('末组='+RPr.userRpe+' 卡片='+RPr.cardRpe+' 账本='+RPr.recRpe2+' e1RM='+RPr.recE1b):'无动作行');
+    T('RP4 e1RM 三态：空 RPE=无 RPE 原式(116.7)、显式计划目标(125.0)、实练优先(123.3)，不再兜底 10',
+      RPr.fA===116.7 && RPr.fB===125 && RPr.fC===123.3,
+      RPr?('空='+RPr.fA+' 目标='+RPr.fB+' 实练='+RPr.fC):'无动作行');
+    T('RP5 CSV 导入空 actual_rpe 不补 10：账本 rpe 保持 null、rpeAssumed=true',
+      RPr.csvNoRpe===true, RPr?('CSV 空 RPE='+RPr.csvNoRpe):'无动作行');
+    var RPrst=JSON.parse(RPs0);
+    Object.keys(state).forEach(function(k){ if(!(k in RPrst)) delete state[k]; });
+    Object.keys(RPrst).forEach(function(k){ delete state[k]; state[k]=RPrst[k]; });
+    _dayPinged=RPping0;
+    if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+    stopTimer();
+    closeSheet('edSheet');
+
+    /* ===== DS. 关闭编辑器不静默丢：有未落账的字段改动先给三条路 ===== */
+    SECT='DS';
+    var DSs0=JSON.stringify(state), DSping0=_dayPinged, DS={};
+    if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+    var DSex=(day().exercises||[])[0];
+    if(DSex){
+      var DSbar=function(){ var b=document.getElementById('edLeave'); return !!b && b.classList.contains('on'); };
+      var DSon=function(){ return document.getElementById('edSheet').classList.contains('on'); };
+      var DSkRep=DSex.reps, DSn=DSex.reps+3;
+      /* DS1 没改字段：直接关，不弹确认 */
+      openEditor(0);
+      closeSheet('edSheet');
+      DS.quiet=!DSon() && !DSbar();
+      /* DS2 改了次数再关：停在面板里，弹确认条，state 还是原值 */
+      openEditor(0);
+      document.getElementById('edReps').value=String(DSn);
+      closeSheet('edSheet');
+      DS.blocked=DSon() && DSbar();
+      DS.keptState=DSex.reps===DSkRep;
+      /* DS3 「继续编辑」只收条：面板还在，改后的值还在 */
+      edLeaveCancel();
+      DS.keepEditing=DSon() && !DSbar() && document.getElementById('edReps').value===String(DSn);
+      /* DS4 「放弃」：收面板，state 回到原值，条也收掉 */
+      closeSheet('edSheet');
+      edLeaveDiscard();
+      DS.discard=!DSon() && !DSbar() && DSex.reps===DSkRep;
+      /* DS5 返回键走同一条闸门；「保存离开」才写回 */
+      openEditor(0);
+      document.getElementById('edReps').value=String(DSn);
+      DS.backHandled=(typeof window.__handleBack==='function') && window.__handleBack()===true;
+      DS.backBlocked=DSon() && DSbar();
+      edLeaveSave();
+      DS.saved=!DSon() && !DSbar() && DSex.reps===DSn;
+      DSex.reps=DSkRep;
+    }
+    T('DS1 编辑器无字段改动时关闭不弹确认（少点击优先：点「+」记组后直接关不受影响）',
+      DS.quiet===true, DS?('直接关='+DS.quiet+' 有确认条='+DSbar):'无动作行');
+    T('DS2 改了次数直接关：面板停在原地并弹出「有未保存的改动」，state 未被写入',
+      DS.blocked===true && DS.keptState===true,
+      DS?('拦住='+DS.blocked+' state 原值='+DS.keptState):'无动作行');
+    T('DS3 「继续编辑」只收确认条：面板与改后的值都还在',
+      DS.keepEditing===true, DS?('继续编辑='+DS.keepEditing):'无动作行');
+    T('DS4 「放弃」：收面板且不写 state（改动确实被丢，不是静默丢）',
+      DS.discard===true, DS?('放弃后='+DS.discard):'无动作行');
+    T('DS5 返回键同样被闸门拦住；「保存离开」才落账并收面板',
+      DS.backHandled===true && DS.backBlocked===true && DS.saved===true,
+      DS?('返回键='+DS.backHandled+' 仍开='+DS.backBlocked+' 保存离开='+DS.saved):'无动作行');
+    var DSrst=JSON.parse(DSs0);
+    Object.keys(state).forEach(function(k){ if(!(k in DSrst)) delete state[k]; });
+    Object.keys(DSrst).forEach(function(k){ delete state[k]; state[k]=DSrst[k]; });
+    _dayPinged=DSping0;
+    if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+    stopTimer();
+    edLeaveOK=true; hideEdLeave(); closeSheet('edSheet'); edLeaveOK=false;
+
+    /* ===== BS. 徽章与账本 e1RM 同源同值 ===== */
+    SECT='BS';
+    var BSs0=JSON.stringify(state), BSping0=_dayPinged, BS={};
+    if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+    var BSexs=(day().exercises||[]);
+    var BSex=BSexs.filter(function(e){ return anchorOf(e.cat)&&tierClass(e.mode)==='t1'; })[0];
+    if(BSex){
+      var bsIdx=BSexs.indexOf(BSex);
+      var bsId=function(){ return 'W'+state.week+'_'+state.day+'_'+(BSex.row||0)+'_'+BSex.mv; };
+      var bsLed=function(){ return (state.e1rmLog||[]).filter(function(r){return r.id===bsId();})[0]; };
+      var bsBadge=function(){ renderExercises();
+        var arts=document.querySelectorAll('#exList article');
+        var a=arts[bsIdx]; if(!a) return ''; var q=a.querySelector('.e1');
+        return q?q.textContent:''; };
+      BSex.load=100; BSex.reps=7; BSex.done=true; BSex.doneSets=1;
+      BSex.setLog=[{kg:100,reps:5,rpe:9,t:0}];
+      logT1MainE1rm(state.week,state.day,BSex);
+      var b1=bsLed(), bd1=bsBadge();
+      BS.rpe=!!(b1&&b1.e1rm===120&&bd1.indexOf('e1RM 120')>=0);
+      /* 末组 RPE 留空：两边都走无 RPE 公式；账本 rpe 必须是 null，不是 8/10 */
+      BSex.setLog=[{kg:100,reps:5,rpe:null,t:0}];
+      logT1MainE1rm(state.week,state.day,BSex);
+      var b2=bsLed(), bd2=bsBadge();
+      BS.norpe=!!(b2&&b2.e1rm===116.7&&b2.rpe===null&&b2.rpeAssumed===true
+        &&bd2.indexOf('e1RM 116.7')>=0);
+      /* 无逐组记录：退回卡片当前值，徽章与账本仍是同一个数 */
+      delete BSex.setLog; BSex.reps=5; BSex.rpe=9;
+      logT1MainE1rm(state.week,state.day,BSex);
+      var b3=bsLed(), bd3=bsBadge();
+      BS.legacy=!!(b3&&b3.e1rm===120&&bd3.indexOf('e1RM 120')>=0);
+    }
+    T('BS1 徽章与账本同源同值：末组 100×5@9 → 两边都是 120（不再吃卡片 reps 7）',
+      BS.rpe===true, BS?('同值='+BS.rpe+' 账本='+JSON.stringify(b1||null)+' 徽章='+bd1):'无 t1 动作');
+    T('BS2 末组 RPE 留空：两边都按无 RPE 公式 116.7，账本 rpe 记 null（不补 8/10）',
+      BS.norpe===true, BS?('无 RPE='+BS.norpe+' 账本='+JSON.stringify(b2||null)+' 徽章='+bd2):'无 t1 动作');
+    T('BS3 无逐组记录时退回卡片当前值，徽章与账本仍是同一个数（100×5@9 → 120）',
+      BS.legacy===true, BS?('兼容='+BS.legacy+' 账本='+JSON.stringify(b3||null)+' 徽章='+bd3):'无 t1 动作');
+    var BSrst=JSON.parse(BSs0);
+    Object.keys(state).forEach(function(k){ if(!(k in BSrst)) delete state[k]; });
+    Object.keys(BSrst).forEach(function(k){ delete state[k]; state[k]=BSrst[k]; });
+    _dayPinged=BSping0;
+    if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+    stopTimer();
+    renderExercises();
+
     }catch(ZERR){
       T('Z0 断言块在 '+SECT+' 段中途抛错（其后断言未执行）', false,
         ZERR.name+': '+String(ZERR.message).slice(0,90));
     }
+    /* ---- 段位徽章：图形只是皮肤，判定与阈值唯一来源是 GL_RANKS / calcGlRank ---- */
+    var rkIds=GL_RANKS.map(function(r){return r.id;});
+    var rkBad=[]; rkIds.forEach(function(id){
+      var h=rankIconHtml(id,32,false);
+      if(!(h.indexOf('href="#rk-'+id+'"')>=0 && h.indexOf('width="32"')>=0)) rkBad.push(id);
+    });
+    T('RK1 五档徽章只经 rankIconHtml：id 逐档出 32px <use>，非法 id 返回空串、非法尺寸回落 24、mono 走单色版',
+      rkIds.length===5 && rkBad.length===0 && rankIconHtml('nope',32,false)===''
+      && rankIconHtml('bronze',30,false).indexOf('width="24"')>=0
+      && rankIconHtml('gold',24,true).indexOf('#rk-gold-mono')>=0,
+      'tiers='+rkIds.length+' bad='+(rkBad.join(',')||'无'));
+    var rkMap=[0,44.9,45,59.9,60,74.9,75,89.9,90,120].map(function(g){
+      var r=calcGlRank(g); return g+':'+r.id+':'+r.stars;
+    });
+    T('RK2 阈值唯一：calcGlRank 只在 45/60/75/90 四个交界换档，交界前一档都落在五星',
+      rkMap[0]==='0:bronze:1' && rkMap[2]==='45:silver:1' && rkMap[4]==='60:gold:1'
+      && rkMap[6]==='75:diamond:1' && rkMap[8]==='90:master:1' && rkMap[1]==='44.9:bronze:5'
+      && rkMap[3]==='59.9:silver:5' && rkMap[5]==='74.9:gold:5' && rkMap[7]==='89.9:diamond:5',
+      rkMap.join(' '));
+    var rkSyms=Array.prototype.map.call(document.querySelectorAll('symbol[id^="rk-"]'),function(s){return s.id;});
+    var rkNeed=rkIds.reduce(function(a,id){ a.push('rk-'+id,'rk-'+id+'-mono'); return a; },[]);
+    refreshGlHero();
+    var rkBadge=document.getElementById('glBadge');
+    T('RK3 符号库与判定表同集：5 档 × 彩色/单色共 10 枚，GL 条徽章由 rankIconHtml 真渲染',
+      rkSyms.length===10 && rkNeed.every(function(id){return rkSyms.indexOf(id)>=0;})
+      && !!rkBadge && rkBadge.innerHTML.indexOf('class="rk-ico"')>=0,
+      'symbols='+rkSyms.length+' badge='+(rkBadge?String(rkBadge.innerHTML).slice(0,40):'无'));
     T('Z1 断言总数无漂移（无静默删除 / 无整段被跳过）', (P+F)+1===EXP_N, '实到 '+((P+F)+1)+' 应 '+EXP_N);
     o.push('');
     o.push('== v3v 汇总: '+P+' PASS / '+F+' FAIL （共 '+(P+F)+' 项）==');
@@ -4128,38 +4524,41 @@ let chrome = null, profDir = null;
   await gT('R1 不识别的 schemaVer → READONLY，且不生成默认 state',
     'READONLY===true && state===null && !!bootFatal');
   await gT('R2 bootFatal 记录了原因与存档来源',
-    "bootFatal && bootFatal.reason==='schema' && String(bootFatal.src).indexOf(LS_WORK)>=0",
+    "bootFatal && bootFatal.reason==='incompatible_gear' && String(bootFatal.src).indexOf(LS_WORK)>=0",
     'bootFatal && bootFatal.reason+" / "+bootFatal.src');
   await gT('R3 阻断层已渲染（标题 + 处置按钮 ≥3）',
     "!!document.getElementById('bootFail') && document.querySelectorAll('#bootFail button').length>=3",
     "document.querySelectorAll('#bootFail button').length");
   await gT('R4 磁盘原文未被空账本覆盖（哨兵与版本仍在）',
-    "(function(){var q=JSON.parse(localStorage.getItem(LS_WORK));return q.sentinel==='__G_SENT__'&&q.schemaVer===999})()");
+    "(function(){var q=JSON.parse(localStorage.getItem(LS_WORK));return q.sentinel==='__G_SENT__'&&q.schemaVer===999})()",
+    "(function(){var q=JSON.parse(localStorage.getItem(LS_WORK)||'null');return q?(q.sentinel+'/'+q.schemaVer):'null'})()");
   await gT('R5 阻断态下 save()/writeSlice() 三分片一律不写盘',
     `(function(){var a=localStorage.getItem(LS_WORK),b=localStorage.getItem(LS_PREFS),c=localStorage.getItem(LS_LIB);
       save(true); writeSlice('workout','{"zzz":1}'); writeSlice('prefs','{}'); writeSlice('lib','{}');
       return localStorage.getItem(LS_WORK)===a && localStorage.getItem(LS_PREFS)===b && localStorage.getItem(LS_LIB)===c})()`);
 
-  // R · 第 2 轮：schemaVer 合法但迁移途中抛错（e1rmLog 含 null）→ 应走 migrate 分支并可只读浏览
+  // R · 第 2 轮：旧 schemaVer(=5) + 旧器械结构 → 不迁移、阻断，且不给「只读浏览」（避免用旧结构渲染）
   await ev(`(function(){
     state=null;
     var p={schemaVer:5,lang:'zh',theme:'dark',week:1,day:'A',sentinel:'__G_SENT2__',
       profile:JSON.parse(JSON.stringify(SEED.profile)),structure:JSON.parse(JSON.stringify(SEED.structure)),
-      weeks:JSON.parse(JSON.stringify(SEED.weeks)),e1rmLog:[null]};
+      weeks:JSON.parse(JSON.stringify(SEED.weeks)),e1rmLog:[null],
+      gearDefaults:{W1_A_SQ:{kind:'barbell'}}};
     localStorage.setItem(LS_WORK, JSON.stringify(p)); return 1;})()`);
   await send(ws, id, 'Page.reload');
   const fatal2 = await waitBootFatal();
-  if (!fatal2) gLines.push('FAIL  R6 迁移抛错未进入阻断态');
-  await gT('R6 迁移抛错 → 阻断且把异常文本带出来',
-    "bootFatal && bootFatal.reason==='migrate' && String(bootFatal.text).length>10",
+  if (!fatal2) gLines.push('FAIL  R6 旧器械档案未进入阻断态');
+  await gT('R6 旧器械档案 → 阻断（incompatible_gear）且文本点名 schemaVer=5 / 本版不迁移',
+    "bootFatal && bootFatal.reason==='incompatible_gear' && /schemaVer=5/.test(String(bootFatal.text)) && /本版不迁移/.test(String(bootFatal.text))",
     'bootFatal && String(bootFatal.text)');
-  await gT('R7 parsed 里有 weeks → 提供「只读浏览」出口',
-    "bootFatal && !!bootFatal.parsed && !!bootFatal.parsed.weeks && /只读浏览/.test(document.getElementById('bootFail').innerText)");
-  await ev('enterSafeMode()');
-  await gT('R8 只读浏览可渲染，但写盘仍被拦（磁盘原文不变）',
-    `(function(){var a=localStorage.getItem(LS_WORK); save(true);
-      var q=JSON.parse(a);
-      return !document.getElementById('bootFail') && !!state && !!state.weeks && q.e1rmLog[0]===null && q.sentinel==='__G_SENT2__'})()`);
+  await gT('R7 incompatible_gear 不给「只读浏览」出口（旧结构不拿来渲染），新建空白必须先导出',
+    "bootFatal && !document.querySelector('#bootFail button[onclick*=enterSafeMode]') && !/只读浏览/.test(document.getElementById('bootFail').innerText) && window.__bootExported!==true && !!document.getElementById('bfNewBlank')",
+    "document.getElementById('bootFail').innerText.slice(0,80)");
+  await gT('R8 未导出就点「新建空白档案」：拒绝清空，磁盘原文一字不动',
+    `(function(){var a=localStorage.getItem(LS_WORK); bootNewBlank();
+      var n=document.getElementById('bfNote');
+      return localStorage.getItem(LS_WORK)===a && /先「导出原始存档」/.test(n?n.textContent:'')})()`,
+    "(function(){var n=document.getElementById('bfNote');return n?n.textContent:'no-note'})()");
 
   // R · 第 3 轮：清空存档后必须回到「正常首装」，不能误判成阻断
   await ev(`(function(){[LS_WORK,LS_PREFS,LS_LIB,LS].forEach(function(k){localStorage.removeItem(k)});return 1})()`);
@@ -4170,33 +4569,39 @@ let chrome = null, profDir = null;
       return READONLY===false && !bootFatal && !!state && !!q && q.schemaVer===SCHEMA_STAMP
         && !document.getElementById('bootFail')})()`);
 
-  // S · 迁移闸门：v5 存档开机迁移一次；已盖章的存档开机绝不重跑（否则会盖掉自定义 rx）
+  // S · 器械档案闸门：旧版本/旧器械结构一律阻断不迁移；当前盖章 + 合法 gearProfile 才放行
   const hArchive = (stamp) => `(function(){
       state=null;
       var p={schemaVer:${stamp},lang:'zh',theme:'dark',week:1,day:'A',
         profile:JSON.parse(JSON.stringify(SEED.profile)),
         structure:JSON.parse(JSON.stringify(SEED.structure)),
         weeks:JSON.parse(JSON.stringify(SEED.weeks)),
+        gearProfile:{v:1,byVenue:{},fallback:{}},
         e1rmLog:[],aux:[],jts:{}};
       p.weeks['1'].A.exercises=[{mode:'SS',cat:'S.Main',load:100,reps:3,rx:'8×2 自定义',done:false,rpe:0,targetRpe:7}];
       localStorage.setItem(LS_WORK, JSON.stringify(p)); return 1;})()`;
   await ev(hArchive(5));
   await send(ws, id, 'Page.reload');
   await waitReady();
-  await gT('S1 v5 存档冷启动迁移一次（旧模式键换新键并盖章）',
-    "state.weeks['1'].A.exercises[0].mode==='T1.3x3' && state.schemaVer===SCHEMA_STAMP",
-    "state.weeks['1'].A.exercises[0].mode+' / stamp='+state.schemaVer");
-  await gT('S2 迁移不覆盖用户自定义 rx',
-    "state.weeks['1'].A.exercises[0].rx==='8×2 自定义'",
-    "state.weeks['1'].A.exercises[0].rx");
+  await gT('S1 v5 存档冷启动被阻断（不迁移、不盖章），模式仍是用户原文 SS',
+    `READONLY===true && state===null && bootFatal && bootFatal.reason==='incompatible_gear'
+      && (function(){var q=JSON.parse(localStorage.getItem(LS_WORK)||'null');
+        return !!q && q.weeks['1'].A.exercises[0].mode==='SS' && q.schemaVer===5;})()`,
+    "bootFatal && bootFatal.reason + ' / disk=' + (localStorage.getItem(LS_WORK)||'').slice(0,20)");
+  await gT('S2 阻断不迁移、不覆盖用户自定义 rx（磁盘原文仍在）',
+    "(function(){var q=JSON.parse(localStorage.getItem(LS_WORK)||'null');" +
+    "return !!q && q.weeks['1'].A.exercises[0].rx==='8×2 自定义';})()",
+    "state===null ? 'blocked' : 'state-present'");
   /* 盖章版必须用页面当前的 SCHEMA_STAMP：写死数字的话，每升一版这条就变成「旧存档该迁移」，
      而它真正要守的是「同一版不该重跑」——数字一漂，闸门看起来坏了，其实测的是别的事。 */
   await ev(hArchive('SCHEMA_STAMP'));
   await send(ws, id, 'Page.reload');
   await waitReady();
-  await gT('S3 已盖章存档不再重跑迁移（闸门生效）',
-    "state.weeks['1'].A.exercises[0].mode==='SS' && state.weeks['1'].A.exercises[0].rx==='8×2 自定义' && state.schemaVer===SCHEMA_STAMP",
-    "state.weeks['1'].A.exercises[0].mode");
+  await gT('S3 当前盖章 + 合法 gearProfile 正常进入（不误判阻断，用户 rx 原样保留）',
+    `!bootFatal && READONLY===false && !!state && !!state.profile && +state.profile.bw>0
+      && state.weeks['1'].A.exercises[0].mode==='SS' && state.weeks['1'].A.exercises[0].rx==='8×2 自定义'
+      && state.schemaVer===SCHEMA_STAMP && gearProfileOk(state.gearProfile)`,
+    "bootFatal ? bootFatal.reason : ('mode=' + (state && state.weeks['1'].A.exercises[0].mode))");
 
   /* 主断言一轮 + R/S 重载轮次，统一按行首计数；旧的汇总行剔除后重算，避免自增。 */
   const allLines = mainOut.split('\n')

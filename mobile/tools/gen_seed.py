@@ -16,7 +16,7 @@ import openpyxl
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))  # .../Roast Powerlifting
-XLSX = os.path.join(ROOT, "data", "01_工作簿/RPL_ExDark_v0.15_ProMax.xlsx")
+XLSX = os.path.join(ROOT, "data", "01_工作簿/RPL_ExDark_v0.70_Plan_2026-11-09.xlsx")
 PROG_XLSX = os.path.join(ROOT, "data", "01_工作簿/RPL_Program_Library_v0.15.xlsx")
 STRAT_XLSX = os.path.join(ROOT, "data", "01_工作簿/RPL_Set_Strategy_v0.15.xlsx")
 OUT = os.path.join(HERE, "seed.json")
@@ -339,6 +339,32 @@ def strategy_lib():
             "source": os.path.basename(STRAT_XLSX)}
 
 
+def _table(wb, name):
+    """表头驱动的读取器：首行即列名，逐行转 dict。
+
+    计划工作簿（Profile/Blocks/Days/Workouts/Telemetry/GPP/Gear/Level）是「表头 + 行」
+    的列式布局，列序由契约 sheet_order / columns 定，不在这里再抄一份坐标。
+    """
+    ws = wb[name]
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return []
+    head = [("" if v is None else str(v).strip()) for v in rows[0]]
+    out = []
+    for row in rows[1:]:
+        if not any(v not in (None, "") for v in row):
+            continue
+        out.append({head[i]: (row[i] if i < len(row) else None)
+                    for i in range(len(head)) if head[i]})
+    return out
+
+
+def _boolv(v):
+    if isinstance(v, bool):
+        return v
+    return str(v).strip().lower() in ("1", "true", "yes", "y")
+
+
 def main():
     pyout.use_utf8_stdout()
     if not os.path.exists(XLSX):
@@ -346,149 +372,190 @@ def main():
 
     wb = openpyxl.load_workbook(XLSX, data_only=True)
 
-    info = wb["信息"]
-    sq = num(info["D11"].value) or 135.0
-    bp = num(info["D12"].value) or 95.0
-    dl = num(info["D13"].value) or 165.0
-    bw = num(info["D10"].value) or 85.0
-    gender_raw = str(info["H14"].value or "Male").strip()
-    start = info["D16"].value
-    startDate = start.strftime("%Y-%m-%d") if hasattr(start, "strftime") else str(start or "2026-11-02")[:10]
-    planWeeks = int(num(info["E16"].value) or 16)
+    # ---- profile（Profile 表 field/value 两列，列名即契约字段名）----
+    pv = {}
+    for row in _table(wb, "Profile"):
+        k = _s(row.get("field"))
+        if k:
+            pv[k] = row.get("value")
+
+    def pnum(key, default=None):
+        v = num(pv.get(key))
+        return default if v is None else v
+
+    start_raw = pv.get("start_date")
+    startDate = (start_raw.strftime("%Y-%m-%d") if hasattr(start_raw, "strftime")
+                 else str(start_raw or "")[:10])
+    if not startDate:
+        raise SystemExit("Profile.start_date 为空：计划没有开始日期，日历与周次都无从生成")
+
+    blocks_rows = _table(wb, "Blocks")
+    planWeeks = int(pnum("plan_weeks", 0) or 0)
+    blocks_weeks = sum(int(num(b.get("work_weeks")) or 0) + int(num(b.get("deload_weeks")) or 0)
+                       for b in blocks_rows)
+    if planWeeks and planWeeks != blocks_weeks:
+        raise SystemExit("Profile.plan_weeks=%d 与 Blocks 合计 %d 周不符（契约要求严格相等，别让两个数各说各话）"
+                         % (planWeeks, blocks_weeks))
+    if not planWeeks:
+        planWeeks = blocks_weeks
     cap = _CONTRACT["capacity"]
     if not (cap["min_weeks"] <= planWeeks <= cap["max_weeks"]):
-        raise SystemExit("信息!E16 的总周数 %d 超出契约容量 %s–%s（上限唯一出处 = RPL-Plan-v3.json 的 capacity）"
+        raise SystemExit("Profile.plan_weeks=%d 超出契约容量 %s–%s（上限唯一出处 = RPL-Plan-v3.json 的 capacity）"
                          % (planWeeks, cap["min_weeks"], cap["max_weeks"]))
+
+    sq, bp, dl = pnum("sq_1rm"), pnum("bp_1rm"), pnum("dl_1rm")
+    if sq is None or bp is None or dl is None:
+        raise SystemExit("Profile 缺 sq_1rm / bp_1rm / dl_1rm：主项百分比没有锚点就算不出重量")
+    bw = pnum("bw_kg", 0.0)
+    gender_raw = _s(pv.get("gender")) or "M"
 
     profile = {
         "sq": sq, "bp": bp, "dl": dl,
-        "ohp": mround2_5(bp * 0.72),
+        "ohp": pnum("ohp_1rm") or mround2_5(bp * 0.72),
         "bw": bw,
-        "initSq": sq, "initBp": bp, "initDl": dl, "initBw": bw,
-        "targetSq": num(info["E11"].value) or 0.0,
-        "targetBp": num(info["E12"].value) or 0.0,
-        "targetDl": num(info["E13"].value) or 0.0,
-        "targetBw": num(info["E10"].value) or 0.0,
-        "age": int(num(info["D14"].value) or 24),
+        "initSq": pnum("init_sq", sq), "initBp": pnum("init_bp", bp),
+        "initDl": pnum("init_dl", dl), "initBw": pnum("init_bw_kg", bw),
+        "targetSq": pnum("target_sq", 0.0), "targetBp": pnum("target_bp", 0.0),
+        "targetDl": pnum("target_dl", 0.0), "targetBw": pnum("target_bw_kg", 0.0),
+        "age": int(pnum("age", 24)),
         "gender": "F" if gender_raw.lower().startswith("f") else "M",
-        "equip": "classic",
-        "recovery": str(info["H15"].value or "Normal / Balanced").strip(),
+        "height": pnum("height_cm", 175.0),
+        "equip": _s(pv.get("equip")) or "classic",
+        "recovery": _s(pv.get("recovery")) or "Normal / Balanced",
         "startDate": startDate,
         "planWeeks": planWeeks,
-        "motto": str(info["H6"].value or "").strip(),
-        # 三小项之二（F3/C2）：负重引体 / 负重双杠的最大附加负重。v0.15 权威表没有这两格，
-        # 出厂默认 0（用户尚未记录）；契约 Profile 的 pullup_added_kg / dip_added_kg 同默认。
-        "pullupAddedKg": 0.0,
-        "dipAddedKg": 0.0,
+        "motto": _s(pv.get("motto")),
+        # 三小项之二（F3/C2）：负重引体 / 负重双杠的最大附加负重，缺省 0。
+        "pullupAddedKg": pnum("pullup_added_kg", 0.0),
+        "dipAddedKg": pnum("dip_added_kg", 0.0),
     }
 
-    # ---- structure（version 3，含训练日标签与建议组数人工覆盖）----
-    # 周期表按 planWeeks（信息!E16）行数读，不再写死 16 行：软件容量是 0–52 周，
-    # 表里行数不足就是数据缺，让它炸在这里，不要静默补成 16 周。
-    period = wb["周期"]
-    rpe_by_week = {}   # week -> base RPE（周期第 6 行起，每周一行）
-    block_rows = {}    # block_id -> [ {week, type, phase, rpe} ]
-    for i in range(planWeeks):
-        r = 6 + i
-        w = i + 1
-        if period.cell(r, 1).value in (None, ""):
-            raise SystemExit("周期表只到第 %d 行，覆盖不到 planWeeks=%d（信息!E16 说计划有 %d 周）——补表，不要静默造第 %d 周的数据"
-                             % (r - 1, planWeeks, planWeeks, w))
-        if period.cell(r, 2).value in (None, ""):
-            raise SystemExit("周期表 B%d 的 BLOCK 是空的：块归属只能由表说；旧写法按下标猜 i//4+1，在 3+1 以外的节律上必错" % r)
-        bid = str(period.cell(r, 2).value).strip()
-        # D 列是 TYPE（Accum / Intens / Deload / Peak / Taper / Test），C 列 PHASE 才是块名
-        block_type = str(period.cell(r, 4).value or "Accum").strip()
-        phase_text = str(period.cell(r, 3).value or "").strip()
-        rpe = num(period.cell(r, 7).value) or BLOCK_DEFAULTS["base_rpe"]
-        rpe_by_week[w] = rpe
-        block_rows.setdefault(bid, []).append({"week": w, "type": block_type, "phase": phase_text, "rpe": rpe})
-
+    # ---- structure（version 3）：块与训练日都由计划表直给，不按下标猜周期类型 ----
     blocks = []
-    for bi, bid in enumerate(sorted(block_rows, key=lambda b: int(b[1:]) if b[1:].isdigit() else 0)):
-        rows = block_rows[bid]
-        work = [r for r in rows if r["type"].lower() != "deload"]
-        deload = [r for r in rows if r["type"].lower() == "deload"]
-        preset = match_cycle_preset(work[0]["phase"] if work else rows[0]["phase"])
-        cycleType, nameZh, nameEn, workMode, rpeStep = (
-            preset["id"], preset["zh"], preset["en"], preset["work_mode"], preset["rpe_step"])
-        baseRpe = work[0]["rpe"] if work else BLOCK_DEFAULTS["base_rpe"]
-        deloadRpe = deload[0]["rpe"] if deload else BLOCK_DEFAULTS["deload_rpe"]
+    for i, b in enumerate(blocks_rows):
+        work = int(num(b.get("work_weeks")) or 0)
+        deload = int(num(b.get("deload_weeks")) or 0)
+        if work + deload <= 0:
+            raise SystemExit("Blocks 第 %d 行（%s）work+deload 为 0：这个块不占周，无法切周"
+                             % (i + 2, b.get("block_id")))
         blocks.append({
-            "id": "B%d" % (bi + 1),
-            "cycleType": cycleType,
-            "nameZh": nameZh,
-            "nameEn": nameEn,
-            "workWeeks": len(work),
-            "deloadWeeks": len(deload),
-            "workMode": workMode,
-            "deloadMode": DELOAD_MODE_DEFAULT,
-            "baseRpe": baseRpe,
-            "rpeStep": rpeStep,
-            "deloadRpe": deloadRpe,
+            "id": _s(b.get("block_id")) or "B%d" % (i + 1),
+            "cycleType": _s(b.get("cycle_type")) or "Custom",
+            "nameZh": _s(b.get("name_zh")),
+            "nameEn": _s(b.get("name_en")),
+            "workWeeks": work,
+            "deloadWeeks": deload,
+            "workMode": _s(b.get("work_mode")),
+            "deloadMode": _s(b.get("deload_mode")) or DELOAD_MODE_DEFAULT,
+            "baseRpe": num(b.get("base_rpe")) or BLOCK_DEFAULTS["base_rpe"],
+            "rpeStep": num(b.get("rpe_step")) or BLOCK_DEFAULTS["rpe_step"],
+            "deloadRpe": num(b.get("deload_rpe")) or BLOCK_DEFAULTS["deload_rpe"],
         })
+
+    dayDefs = []
+    for i, d in enumerate(_table(wb, "Days")):
+        did = _s(d.get("day_id"))
+        if not did:
+            raise SystemExit("Days 第 %d 行缺 day_id：训练日没有键，Workouts 的行就无处可落" % (i + 2))
+        tags = [t.strip() for t in _s(d.get("focus_tags")).split(",") if t.strip()]
+        dayDefs.append({
+            "id": did,
+            "label": _s(d.get("label")) or did,
+            "titleZh": _s(d.get("title_zh")),
+            "titleEn": _s(d.get("title_en")),
+            "weekdayOffset": int(num(d.get("weekday_offset")) or 0),
+            "focusTags": tags,
+            "constraints": {
+                "forbidHeavySbd": _boolv(d.get("forbid_heavy_sbd")),
+                "forbidT1Main": _boolv(d.get("forbid_t1_main")),
+                "upperOnly": _boolv(d.get("upper_only")),
+                "deloadCap": _boolv(d.get("deload_cap")),
+            },
+        })
+    if not dayDefs:
+        raise SystemExit("Days 表为空：没有训练日，周表无从组装")
 
     structure = {
         "version": 3,
         "startDate": startDate,
         "totalWeeks": planWeeks,
-        "daysPerWeek": len(DAY_DEFS),
+        "daysPerWeek": len(dayDefs),
         "blocks": blocks,
-        "dayDefs": DAY_DEFS,
+        "dayDefs": dayDefs,
         "recSetsOverride": {"sq": None, "bp": None, "dl": None},
     }
 
-    # ---- weeks（含 targetRpe + bio/post + gppDays）----
+    # ---- weeks（Workouts + Telemetry 两表直读）----
+    # 每个动作的组数（sets）与处方原文（rx_text）都按计划原样落进种子；
+    # 前端不再靠 mode 猜组次，猜出来的组数就是用户看到的错误计划。
+    day_ids = [d["id"] for d in dayDefs]
+    tel_rows = _table(wb, "Telemetry")
+    tele = {}
+    for i, t in enumerate(tel_rows):
+        w = num(t.get("week"))
+        did = _s(t.get("day"))
+        if w is None or not did:
+            continue
+        if did not in day_ids:
+            raise SystemExit("Telemetry 第 %d 行 day=%r 不在 Days 表（%s）里" % (i + 2, did, day_ids))
+        tele[(int(w), did)] = t
+
+    grouped = {}
+    for i, r in enumerate(_table(wb, "Workouts")):
+        w = num(r.get("week"))
+        did = _s(r.get("day"))
+        if w is None or not did:
+            raise SystemExit("Workouts 第 %d 行缺 week/day：这两个键是行归属的唯一坐标" % (i + 2))
+        if did not in day_ids:
+            raise SystemExit("Workouts 第 %d 行 day=%r 不在 Days 表（%s）里" % (i + 2, did, day_ids))
+        grouped.setdefault((int(w), did), []).append(r)
+
     weeks = {}
     for w in range(1, planWeeks + 1):
-        ws = wb["W%d" % w]
-        base_rpe = rpe_by_week.get(w, BLOCK_DEFAULTS["base_rpe"])
         days = {}
-        for did, fallback_title, title_row, bio_row, ex_start, ex_end in DAY_BLOCKS:
-            raw_title = str(ws["A%d" % title_row].value or fallback_title)
-            title = raw_title.replace("\n", " · ").strip()
-            if "·" in title:
-                title = title.split("·", 1)[1].strip()
-            title = _DAY_TITLE_MIGRATION.get(title, title)  # F2：旧内置名升级为现行名
-
+        for d in dayDefs:
+            did = d["id"]
+            t = tele.get((w, did)) or {}
+            rows = sorted(grouped.get((w, did), []),
+                          key=lambda r: (int(num(r.get("seq")) or 0), int(num(r.get("row_idx")) or 0)))
             exercises = []
-            for r in range(ex_start, ex_end + 1):
-                mv = ws["D%d" % r].value
-                if mv is None or str(mv).strip() == "":
-                    continue
-                mode = str(ws["B%d" % r].value or "Custom").strip()
+            for r in rows:
+                mode = _s(r.get("mode")) or "Custom"
                 mode = MODE_MIGRATION_MAP.get(mode, mode)
-                trpe = target_rpe_for(mode, base_rpe)
+                trpe = num(r.get("target_rpe"))
                 exercises.append({
-                    "row": r,
+                    "row": int(num(r.get("row_idx")) or 0),
                     "mode": mode,
-                    "cat": str(ws["C%d" % r].value or "").strip(),
-                    "mv": str(mv).strip(),
-                    "load": num(ws["E%d" % r].value) or 0.0,
-                    "rx": str(ws["F%d" % r].value or "").strip(),
-                    "reps": num(ws["G%d" % r].value) or 0,
+                    "cat": _s(r.get("category")),
+                    "mv": _s(r.get("movement")),
+                    "load": num(r.get("load_kg")) or 0.0,
+                    "rx": _s(r.get("rx_text")),
+                    "reps": int(num(r.get("reps")) or 0),
+                    "sets": int(num(r.get("sets")) or 0),
                     "targetRpe": trpe,
-                    "rpe": num(ws["H%d" % r].value) or trpe,
-                    "notes": str(ws["I%d" % r].value or "").strip(),
+                    # 实练 RPE 只认用户填过的值：种子里绝不抄 target_rpe（否则卡片一开机就把
+                    # 计划目标 7.5 当成用户已记录）。工作簿 actual_rpe 有值才是真的实练记录。
+                    "rpe": num(r.get("actual_rpe")),
+                    "notes": _s(r.get("notes")),
                 })
 
-            # V02-06：遥测初始一律置空 —— bio/post 不再携带 xlsx 的参考数值，
-            # 只保留结构性字段（day/readiness/directive）；数值由用户在 TELEMETRY 面板录入
+            # V02-06：遥测数值不随种子出厂（readiness/directive 只带计划里的结构性字段），
+            # 数值由用户在 TELEMETRY 面板录入；体重按计划的逐周减重曲线带出。
             days[did] = {
-                "title": title,
-                "readiness": str(ws["C%d" % bio_row].value or "Good / Normal (90%)"),
-                "bw": num(ws["E%d" % bio_row].value) or bw,
+                "title": d["titleZh"] or d["label"],
+                "readiness": _s(t.get("readiness")) or "Good / Normal (90%)",
+                "bw": num(t.get("bw_kg")) or bw,
                 "bio": {
-                    "day": str(ws["B%d" % bio_row].value or "").strip(),
-                    "readiness": str(ws["C%d" % bio_row].value or "").strip(),
-                    "directive": str(ws["I%d" % bio_row].value or "").strip(),
+                    "day": d["label"],
+                    "readiness": _s(t.get("readiness")),
+                    "directive": _s(t.get("directive")),
                 },
                 "post": {},
                 "exercises": exercises,
             }
 
         # 每周独立 gppDays（每项 = {done:[7 bool], actualValue, actualUnit, actualRpe, note}）
-        # 种子出厂恒为空白卡：行序在 gpp 定义段组装完后对齐到规范行数（菜单 8 行 + 自定义）。
+        # 种子出厂恒为空白卡：行序在 gpp 定义段组装完后对齐到规范行数。
         days["gppDays"] = [{"done": [False] * _GPP_MASK_LEN, "actualValue": "",
                             "actualUnit": "", "actualRpe": None, "note": ""}]
         weeks[str(w)] = days
@@ -545,7 +612,7 @@ def main():
             raise SystemExit("GPP 契约菜单行 %s 指向目录外条目 %r" % (r.get("row"), ids[0]))
         menu_covered.update(i for i in ids if i in gpp_items)
         gpp.append(_gpp_def(it.get("domain") or r.get("domain"), it))
-    aux_ws = wb["W1"]
+    aux_ws = wb["W1"] if "W1" in wb.sheetnames else None
     gpp_seen = set()
     for e in _GPP_CATALOG.get("legacy_map", {}).get("seed_aux_rows", []):
         nids = [i for i in (e.get("new_ids") or []) if i in gpp_items]
@@ -559,7 +626,7 @@ def main():
         # load_kg_hint/domain，rx 仍以旧 AUX 原文优先、目录文本兜底。
         cat = gpp_items.get(nids[0]) if nids else None
         r0 = (AUX_FIRST + e["old_row"]) if e.get("old_row") is not None else None
-        raw = str(aux_ws["E%d" % r0].value or "").strip() if r0 is not None else ""
+        raw = str(aux_ws["E%d" % r0].value or "").strip() if (aux_ws is not None and r0 is not None) else ""
         src = {"domain": (cat or {}).get("domain") or e.get("new_domain") or "custom",
                "name_en": name,
                "metric_type": (cat or {}).get("metric_type"),

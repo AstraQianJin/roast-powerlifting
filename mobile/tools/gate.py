@@ -303,17 +303,21 @@ def static_checks():
     except (OSError, ValueError) as e:
         chk("S9", "seed.json 键齐全 / 周数与动作行数非空", False, e)
 
-    # S10 迁移链入口：SCHEMA_STAMP 必须高于历史所有被接受的 sv，否则闸门形同虚设
+    # S10 迁移链入口：v9 起只接受当前 SCHEMA_STAMP（旧档一律阻断、不迁移），
+    #     因此不再要求存在旧 sv 分支；但必须见到「正白名单 + 旧器械结构闸门」这两条守卫。
     try:
         asset = read(ASSET)
         m = re.search(r"const SCHEMA_STAMP=(\d+);", asset)
-        acc = re.search(r"\(sv===SCHEMA_STAMP((?:\|\|sv===\d+)+)\)", asset)
+        acc = re.search(r"\(sv===SCHEMA_STAMP((?:\|\|sv===\d+)*)\)", asset)
         stamps = sorted(int(x) for x in re.findall(r"sv===(\d+)", acc.group(1))) if acc else []
-        chk("S10", "迁移闸门：SCHEMA_STAMP 高于所有可接受的旧 sv",
-            bool(m) and bool(stamps) and int(m.group(1)) > max(stamps),
-            "STAMP=%s 接受=%s" % (m.group(1) if m else "?", stamps))
+        guard10 = ("gearProfileOk(s.gearProfile)" in asset and
+                   "hasLegacyStackCfg(s)" in asset and
+                   "!s.gearDefaults" in asset)
+        chk("S10", "迁移闸门：SCHEMA_STAMP 只接受当前值，且旧器械结构被显式阻断（不迁移）",
+            bool(m) and guard10 and (int(m.group(1)) > max(stamps) if stamps else True),
+            "STAMP=%s 旧 sv=%s 守卫=%s" % (m.group(1) if m else "?", stamps or "无", "OK" if guard10 else "缺"))
     except OSError as e:
-        chk("S10", "迁移闸门：SCHEMA_STAMP 高于所有可接受的旧 sv", False, e)
+        chk("S10", "迁移闸门", False, e)
 
     # S11 结构写入唯一入口（C2）：派生字段只允许 applyStructure 一处赋值，
     #     否则导入 / 迁移 / 设置页各写一份，用户改的周数会被下一次重算无声盖掉。
@@ -2207,10 +2211,21 @@ def static_checks():
             bad38.append("编辑器步进按钮不是 ±1/±2 倍数调用：%s" % step38)
         if re.search(r"stepLoad\([^)]*[0-9]+\.[0-9]", tpl38):
             bad38.append("stepLoad 调用里出现小数 kg 字面量")
-        card38 = "onclick=\"quickLoad(event,'+i+',1)\">+'+fmtStep(stepOf(e))+'</button>'"
+        card38 = "onclick=\"quickLoad(event,'+i+',1)\">+'+nextStepText(e,1)+'</button>'"
         if card38 not in tpl38:
-            bad38.append("首页步进按钮文案不是 fmtStep(stepOf(e)) 现写")
-        chk("S38", "Resolver 纪律：platesPerSide 只在 Resolver / 全局杆重·赛扣只在白名单 / 步进按钮无 kg 字面量",
+            bad38.append("首页步进按钮文案不是 nextStepText(e,1) 现写")
+        # 新求解路径（v0.70）：插片必须走显式档位表；旧 base+pin×inc 公式不得回潮。
+        if not re.search(r"function nextStepText\(", tpl38):
+            bad38.append("缺 nextStepText（插片 ± 实际跨度 / 无表裸 +−）")
+        if len(re.findall(r"\bnextReachable\(", tpl38)) < 2:
+            bad38.append("nextReachable 调用不足（编辑器与首页各需一处）")
+        if "function snapStack(" not in tpl38 or "function stackLadderOf(" not in tpl38:
+            bad38.append("插片求解缺 snapStack / stackLadderOf")
+        if "baseKg+s.pin*s.incKg" in tpl38:
+            bad38.append("旧插片公式 base+pin×inc 仍在")
+        if "该动作未登记配重档位表" not in tpl38:
+            bad38.append("无档位表时的 exact=false 警告缺失")
+        chk("S38", "Resolver 纪律：platesPerSide 只在杠铃路径 / 插片走显式档位表与相邻可达档 / 步进按钮无 kg 字面量",
             not bad38,
             "OK（platesPerSide %d 处 / 全局调用 %d 处全在白名单 / 步进 4 颗）" % (n38, len(owners38))
             if not bad38 else " / ".join(bad38[:6]))
@@ -2232,28 +2247,21 @@ def static_checks():
         if not pref39 or not imp39 or work39 is None:
             bad39.append("三份键名单有一份取不到")
         else:
-            for k39 in ("venues", "activeVenueId"):
+            for k39 in ("venues", "activeVenueId", "gearProfile"):
                 if k39 not in pref39:
                     bad39.append(k39 + " 不在 PREF_KEYS")
+            for k39 in ("venues", "activeVenueId", "gearProfile"):
                 if k39 not in imp39:
                     bad39.append(k39 + " 不在 IMPORT_KEEP_KEYS")
+            for k39 in ("venues", "activeVenueId", "gearProfile", "gearDefaults"):
                 if k39 in work39:
                     bad39.append(k39 + " 误入 WORK_KEYS")
-        if "if(sv<SCHEMA_STAMP) migrateStateV8(state);" not in tpl39:
-            bad39.append("migrateStateV8 不在 sv<SCHEMA_STAMP 闸门内")
-        m39v8 = re.search(r"function migrateStateV8\(s, fresh\)\{(.*?)\n\}", tpl39, re.S)
-        if not m39v8:
-            bad39.append("migrateStateV8 函数体取不到")
-        elif "migrateStateV7(s, fresh);" not in m39v8.group(1):
-            bad39.append("migrateStateV8 没串 migrateStateV7（v7 旧档将跳过换算）")
-        fr39 = re.search(r"if\(fresh\)\{(.*?)\}else\{(.*?)\n    \}", tpl39, re.S)
-        if not fr39:
-            bad39.append("fresh / else 结构取不到")
-        else:
-            if "v7ConvertLoads" in fr39.group(1):
-                bad39.append("fresh 首建分支竟做换算")
-            if "v7ConvertLoads(s, bk, rep);" not in fr39.group(2):
-                bad39.append("非 fresh 分支缺 v7ConvertLoads")
+            if "gearDefaults" in pref39 or "gearDefaults" in imp39:
+                bad39.append("gearDefaults 仍在偏好 / 导入名单（旧模型未退役）")
+        if "if(sv<SCHEMA_STAMP) migrateStateV8(state);" in tpl39:
+            bad39.append("启动仍在跑 v8 迁移（旧档应阻断而非迁移）")
+        if "sv===SCHEMA_STAMP&&gearProfileOk(s.gearProfile)&&!s.gearDefaults&&!hasLegacyStackCfg(s)" not in tpl39:
+            bad39.append("启动白名单缺 gearProfile / 旧结构闸门")
         for rel39 in ("mobile/tools/schema/RPL-Plan-v1.json", "mobile/tools/schema/RPL-Exchange-v1.json",
                       "mobile/tools/schema/RPL-Plan-v2.json", "mobile/tools/schema/RPL-Exchange-v2.json"):
             p39 = os.path.join(ROOT, rel39)
@@ -2266,7 +2274,7 @@ def static_checks():
                     bad39.append(rel39.split("/")[-1] + " 与 git HEAD 不一致（契约永不就地改）")
             except OSError as ee:
                 bad39.append(rel39 + " 取不到 git 哈希：" + str(ee))
-        chk("S39", "迁移与分片：venues 双登记且不入 WORK_KEYS / v8 闸门在位且串 v7、fresh 不换算 / 四份旧契约哈希 == HEAD",
+        chk("S39", "迁移与分片：venues/gearProfile 双登记且不入 WORK_KEYS / gearDefaults 退役 / 旧档阻断不迁移 / 四份旧契约哈希 == HEAD",
             not bad39,
             "OK（prefs %d 键 / keep %d 键 / 冻结契约 4 份）" % (len(pref39 or []), len(imp39 or []))
             if not bad39 else " / ".join(bad39[:6]))
@@ -2698,6 +2706,16 @@ def static_checks():
         for sym45 in ("kitSheet", "WEAR_CHIP", "gearKit", "setKitT"):
             if sym45 not in prod45:
                 bad45.append("成品缺 %s（忘跑 build_html 或手改成品）" % sym45)
+        # v0.70 器械词表 v2：身份部件 / 档位表 / 便携键都必须从契约派生，不许模板另抄一份。
+        if gear45.get("gear_ver") != "RPL-Gear-v2":
+            bad45.append("器械词表不是 RPL-Gear-v2")
+        if len((gear45.get("identity") or {}).get("components") or []) != 6:
+            bad45.append("v2 identity.components 不是六个部件")
+        if not (gear45.get("stack") or {}).get("ladder"):
+            bad45.append("v2 缺 stack.ladder 契约")
+        for sym45b in ("GEAR_SCHEMA.identity.components", "GEAR_SCHEMA.stack.ladder", "GEAR_SCHEMA.profile"):
+            if tpl45.count(sym45b) < 1:
+                bad45.append("模板未从契约读 %s" % sym45b)
         chk("S45", "装备/场地库接线：gearKit 双名单各登记一次 / 回填与防御各两处比一 / kitSheet·入口·"
             "收口·文案各一份 / WEAR_CHIP 对齐契约 wear_levels / 三套主题色标齐 / 成品同段",
             not bad45,
@@ -2995,7 +3013,7 @@ def static_checks():
             bad49.append("哑铃/自重渲染分支不是各恰好一条")
         if body49.count("pvBar.classList.toggle('no-sleeve', !isBar)") != 1:
             bad49.append("非杠铃关套管轴那行不是恰好一份")
-        for css49 in (".db-row", ".db-cell", ".bw-fig", ".bw-state", ".gc-code"):
+        for css49 in (".gz-dumb", ".gz-bw", ".gz-figure", ".gz-special", ".gc-code"):
             if css49 + "{" not in body49 and css49 + " " not in body49 and css49 + "," not in body49:
                 bad49.append("CSS 缺 %s 规则" % css49)
         # F. 成品同段：忘跑 build_html / 手改成品都会在这里先响
@@ -3195,6 +3213,178 @@ def static_checks():
             if not bad51 else " / ".join(bad51[:6]))
     except (OSError, ValueError, KeyError) as e:
         chk("S51", "六边形能力记录接线", False, e)
+
+    # S52 固定 release 签名（v0.70 起）：release 构建**只认**仓库外的专用 keystore。
+    #     以前用的是 signingConfigs.debug —— debug 证书随机器生成，换机打包就换了签名，
+    #     用户覆盖升级直接 INSTALL_FAILED_UPDATE_INCOMPATIBLE。这条把「读法」钉死：
+    #     口令文件路径在 build.gradle 里写死为 ~/.rpl-keys，材料一律不进仓。
+    #     本机缺口令/缺 keystore 也判 FAIL：拿不到被检对象不能装作通过。
+    try:
+        bad52 = []
+        g52 = read(GRADLE)
+        if "signingConfig = signingConfigs.release" not in g52:
+            bad52.append("release 未绑定 signingConfigs.release")
+        if "signingConfigs.debug" in g52:
+            bad52.append("release 仍在用 signingConfigs.debug（签名随机器变，覆盖升级必失败）")
+        if ".rpl-keys/keystore.properties" not in g52:
+            bad52.append("签名材料读法不是仓库外的 ~/.rpl-keys/keystore.properties")
+        ig52 = read(os.path.join(ROOT, ".gitignore"))
+        for pat52 in ("*.jks", "*.keystore", "keystore.properties"):
+            if pat52 not in ig52:
+                bad52.append(".gitignore 没盖住 %s" % pat52)
+        props52 = os.path.join(os.path.expanduser("~"), ".rpl-keys", "keystore.properties")
+        if not os.path.exists(props52):
+            bad52.append("本机缺签名口令文件 %s" % props52)
+        else:
+            kv52 = {}
+            for line52 in read(props52).splitlines():
+                if "=" in line52:
+                    k52, v52 = line52.split("=", 1)
+                    kv52[k52.strip()] = v52.strip()
+            sf52 = kv52.get("storeFile", "")
+            if not sf52 or not os.path.exists(sf52):
+                bad52.append("keystore 文件不存在：%s" % (sf52 or "(storeFile 未配置)"))
+        chk("S52", "固定 release 签名：release 绑定专用 signingConfig / 绝不复用 debug / 材料只在仓库外的 "
+            "~/.rpl-keys（.gitignore 盖住 *.jks·*.keystore·keystore.properties）",
+            not bad52,
+            "OK（签名材料在仓外，release 不再随机器变）" if not bad52 else " / ".join(bad52[:6]))
+    except (OSError, ValueError, KeyError) as e:
+        chk("S52", "固定 release 签名", False, e)
+
+    # S53 · v0.70 工具/徽章/口径单源
+    #   0.70 把三个计算器从动作编辑器搬进设置小工具区，并把段位判定与徽章图形收成同一份来源。
+    #   钉四件事：三张工具卡各一处；徽章 sprite 与 GL_RANKS 同名五档且只有 rankIconHtml 一个出口；
+    #   GL_RANKS 不再有 max（阈值只许 min/step）；活路径不再读退役的 gearDefaults。
+    try:
+        tpl53 = read(build_html.TPL)
+        bad53 = []
+        n53 = len(re.findall(r'class="set-tools-grid"', tpl53))
+        if n53 != 1:
+            bad53.append("set-tools-grid 出现 %d 处（应 1）" % n53)
+        n53 = len(re.findall(r'class="set-tool-card"', tpl53))
+        if n53 != 3:
+            bad53.append("set-tool-card 出现 %d 处（应 3）" % n53)
+        for bid53 in ("toolLoadBtn", "toolRmBtn", "toolCoefBtn"):
+            if len(re.findall(r'id="%s"' % bid53, tpl53)) != 1:
+                bad53.append("%s 不是恰好一处" % bid53)
+        for fn53 in ("openToolLoad", "openToolRm", "openToolCoef"):
+            if len(re.findall(r'function\s+%s\s*\(' % fn53, tpl53)) != 1:
+                bad53.append("%s 定义不是恰好一处" % fn53)
+        m53 = re.search(r'const GL_RANKS\s*=\s*\[(.*?)\];', tpl53, re.S)
+        if not m53:
+            bad53.append("GL_RANKS 定义缺失")
+        else:
+            ids53 = re.findall(r"id:'([a-z]+)'", m53.group(1))
+            if ids53 != ["bronze", "silver", "gold", "diamond", "master"]:
+                bad53.append("GL_RANKS 五档名单/顺序变了：%s" % ids53)
+            if re.search(r'\bmax\s*:', m53.group(1)):
+                bad53.append("GL_RANKS 仍有 max 列（阈值必须只有 min/step）")
+        syms53 = re.findall(r'<symbol id="rk-([a-z]+)(-mono)?"', tpl53)
+        base53 = sorted(set(a for a, b in syms53 if not b))
+        if base53 != ["bronze", "diamond", "gold", "master", "silver"]:
+            bad53.append("徽章 sprite 彩色 symbol 不是五档：%s" % base53)
+        if len(syms53) != 10:
+            bad53.append("徽章 sprite symbol 共 %d 个（应 5 彩 + 5 单色 = 10）" % len(syms53))
+        if len(re.findall(r'<use href="#rk-\'\+', tpl53)) != 1:
+            bad53.append("徽章 <use href=\"#rk-\"> 不止一处（必须只从 rankIconHtml 出口渲染）")
+        if not re.search(r'function\s+rankIconHtml\s*\(', tpl53):
+            bad53.append("rankIconHtml 缺失")
+        for fn53b in ("gearOf", "gearViewOf", "solveLoad"):
+            mb53 = re.search(r'function\s+%s\s*\([^)]*\)\s*\{' % fn53b, tpl53)
+            if not mb53:
+                bad53.append("%s 缺失，无法核对退役键" % fn53b)
+                continue
+            b53 = mb53.end() - 1
+            d53, k53 = 0, b53
+            while k53 < len(tpl53):
+                if tpl53[k53] == '{':
+                    d53 += 1
+                elif tpl53[k53] == '}':
+                    d53 -= 1
+                    if d53 == 0:
+                        break
+                k53 += 1
+            if 'gearDefaults' in tpl53[b53:k53 + 1]:
+                bad53.append("%s 仍读退役的 gearDefaults" % fn53b)
+        chk("S53", "v0.70 单源：设置三工具卡各一处 / 徽章 sprite 与 GL_RANKS 同名五档且单出口 / GL_RANKS 无 max / 活路径不读 gearDefaults",
+            not bad53, "OK" if not bad53 else " / ".join(bad53[:6]))
+    except (OSError, ValueError) as e:
+        chk("S53", "v0.70 单源", False, e)
+
+    # S54 · 主题对比度地板（A2/A3）
+    #   T1/T2 那批写死色 0.70 已收进令牌；GL_RANKS 五档改成 var(--rk-*)，三主题各一套值。
+    #   既钉「不许回退成字面色」，也按 WCAG 算亮底/纸底的文字对比度 ≥4.5（先修再上）。
+    try:
+        tpl54 = read(build_html.TPL)
+        css54 = strip_css_comments(style_span(tpl54, "模板")[1])
+        bad54 = []
+
+        def _hexlum54(h):
+            h = h.lstrip("#")
+            r, g, b = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+            f = lambda c: c / 12.92 if c <= 0.04045 else ((c + 0.05) / 1.055) ** 2.4
+            return .2126 * f(r) + .7152 * f(g) + .0722 * f(b)
+
+        def _contrast54(a, b):
+            la, lb = _hexlum54(a), _hexlum54(b)
+            x, y = max(la, lb), min(la, lb)
+            return (x + .05) / (y + .05)
+
+        blocks54 = {}
+        for mb54 in re.finditer(r'(?m)^(:root|html\[data-theme="([a-z]+)"\])\s*\{', css54):
+            name54 = "root" if mb54.group(1) == ":root" else mb54.group(2)
+            b54, d54, k54 = mb54.end() - 1, 0, mb54.end() - 1
+            while k54 < len(css54):
+                if css54[k54] == '{':
+                    d54 += 1
+                elif css54[k54] == '}':
+                    d54 -= 1
+                    if d54 == 0:
+                        break
+                k54 += 1
+            blocks54[name54] = dict(re.findall(r'(--[\w-]+)\s*:\s*([^;]+);', css54[b54:k54 + 1]))
+        for need54 in ("root", "light", "nature"):
+            if need54 not in blocks54:
+                bad54.append("取不到 %s 令牌块" % need54)
+        if not bad54:
+            for th54 in ("root", "light", "nature"):
+                bg54 = blocks54[th54].get("--card-a", "").strip()
+                for id54 in ("bronze", "silver", "gold", "diamond", "master"):
+                    v54 = blocks54[th54].get("--rk-" + id54, "").strip()
+                    if not re.fullmatch(r'#[0-9A-Fa-f]{6}', v54):
+                        bad54.append("%s --rk-%s 不是六位色值（%r）" % (th54, id54, v54))
+                        continue
+                    c54 = _contrast54(v54, bg54)
+                    if c54 < 4.5:
+                        bad54.append("%s 段位 %s 对比度 %.2f < 4.5" % (th54, id54, c54))
+            for th54 in ("light", "nature"):
+                bg54 = blocks54[th54].get("--card-a", "").strip()
+                for tok54 in ("--t1", "--t2", "--gold", "--t3"):
+                    v54 = blocks54[th54].get(tok54, "").strip()
+                    if re.fullmatch(r'#[0-9A-Fa-f]{6}', v54):
+                        c54 = _contrast54(v54, bg54)
+                        if c54 < 4.5:
+                            bad54.append("%s %s 对比度 %.2f < 4.5" % (th54, tok54, c54))
+        sel54 = [".rx-groups", ".vol-chip.optimal", ".vol-chip.high", ".vol-chip.over", ".sp-tag",
+                 ".sp-cell.hi b", ".sp-led", ".rx-cardio", ".strat-taboo", ".matrix-table td.no",
+                 ".ga-badge.hot", ".jts-warn", ".setcap .sc-btn.minus", ".pv-clamp i", ".pbar span"]
+        for s54 in sel54:
+            mb54 = re.search(re.escape(s54) + r'\s*\{([^}]*)\}', css54)
+            if not mb54:
+                bad54.append("找不到规则 %s" % s54)
+            elif re.search(r'#[0-9A-Fa-f]{3,8}\b|rgba?\(', mb54.group(1)):
+                bad54.append("%s 仍有字面色（应走令牌）" % s54)
+        for lid54 in ("pSq", "pBp", "pDl"):
+            mb54 = re.search(r'<label for="%s" style="color:([^"]+)"' % lid54, tpl54)
+            if not mb54 or not mb54.group(1).strip().startswith("var("):
+                bad54.append("%s 内联标签不是令牌色" % lid54)
+        mb54 = re.search(r'<span style="color:([^"]+)">推举 1RM</span>', tpl54)
+        if not mb54 or not mb54.group(1).strip().startswith("var("):
+            bad54.append("pOhp 内联标签不是令牌色")
+        chk("S54", "主题对比度地板：GL_RANKS 五档按主题取色且对卡片底 ≥4.5 / T1 选择器不再写死字面色 / SBD 内联标签走令牌",
+            not bad54, "OK" if not bad54 else " / ".join(bad54[:6]))
+    except (OSError, ValueError, KeyError) as e:
+        chk("S54", "主题对比度地板", False, e)
 
 
 # ---------- 动态 ----------

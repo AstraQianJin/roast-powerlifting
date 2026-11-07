@@ -1,14 +1,15 @@
-# ExDark Pro · v0.61（预览版）
+# ExDark Pro · v0.70
 
 **发布日期**：2026-11-07
-**前序版本**：v0.60（versionCode 保持 56；预览包只升 versionName）
-**成品**：`release/RPL_ExDark_v0.61_Pro.apk`（versionName 0.61 / versionCode 56）
+**前序版本**：v0.60（versionCode 56 → 57）
+**成品**：`release/RPL_ExDark_v0.70_Pro.apk`（versionName 0.70 / versionCode 57；1077.8 KB；md5 `98e39cccd0aa9d5c66eaeb8ed5890182`；内嵌 `index.html` md5 `e41fdc283f60c709788eb3cb3ae2c006`）
+**签名**：固定 release keystore（`CN=RPL ExDark Pro, OU=Internal Beta`），SHA-256 `E4:23:E5:24:CC:95:82:7D:43:CC:A6:05:56:2D:CE:4E:B3:C2:88:45:29:48:3E:A9:B6:64:D5:EA:27:1E:2F:C9`；keystore 与口令在仓库外 `~/.rpl-keys`，**本版起签名不再随机器变**（v0.60 及更早是 debug 签名，升级本版需先卸载旧包，装前用 `pm uninstall -k` 保留账本数据）
 
-> **本版内容**：首页删除「今天也要练」模块；设置由抽屉改为独立页面并拥有自己的返回栈（子项返回回设置页），按消费者视角重排七组卡片、去掉工程模式话术；自动调整改为先预览、确认才应用；品牌串统一 `ExDark Pro`。门禁默认只打 FAIL，日常只跑 `--static`。**未进本版**：三个计算器与共享段位徽章、器械身份、显式插片档位表、旧格式阻断页。
+> **本版内容**：计划正确性。处方解析覆盖计划里的真实写法，认不出的非空原文显式标出并保留原文，不再静默换成 `proto` 处方；`Workouts` 的 `sets` 列真正驱动组数（导入、卡片、组数切换、导出同一条链）；App 默认种子改用新工作簿 `RPL_ExDark_v0.70_Plan_2026-11-09.xlsx`（旧工作簿原样保留）。顺带修复：底部日卡的日名变长后把按钮撑出屏幕（周五/周六/GPP 点不到），改为 `minmax(0,1fr)` + 单行省略，360dp 下五个日卡全在屏内。CSV 26 列、`data/*.xlsx` 权威源、既有契约与 `SCHEMA_STAMP` 一字未动。
 
 ---
 
-# ExDark Pro · v0.60
+## [v0.60] — 2026-11-07
 
 **发布日期**：2026-11-07
 **前序版本**：v0.59（versionCode 55 → 56）

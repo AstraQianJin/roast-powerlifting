@@ -47,8 +47,8 @@ FAULTS = [
      "    rx=sets+'×'+reps; tag='STRAIGHT SETS'; backoff=0;",
      "F5 顶组回落猜次数 → gearv G2 红（处方逐组串与标签都没了）"),
     # 6) 海报吨位把 e.load 当净负荷
-    (TPL, "      const tonOne=gv.effectiveKg*(+e.reps||0)*setsOf(e.mode);",
-     "      const tonOne=(+e.load||0)*(+e.reps||0)*setsOf(e.mode);",
+    (TPL, "      const tonOne=bk.kg*(+e.reps||0)*setsOf(e.mode, e.sets);",
+     "      const tonOne=(+e.load||0)*(+e.reps||0)*setsOf(e.mode, e.sets);",
      "F6 吨位退回 e.load → gearv G3 红（纯自重行吨位掉 0）"),
     # 7) 纯自重 load=0 也做净重→外载换算
     (TPL, "      if(old===0) return;                 // 计划原文就是 0：纯自重，不动",
@@ -67,7 +67,7 @@ FAULTS = [
      "  box.innerHTML=[{id:'barbell',zh:'杠铃',en:'BARBELL'}].map(function(k){",
      "F10 chips 手抄名单 → S37 红 + gearv G3 红（六类只剩一类）"),
     # 11) 首页步进按钮写死 kg 字面量（S38 的 witness）
-    (TPL, "+'+fmtStep(stepOf(e))+'</button>'",
+    (TPL, "+'+nextStepText(e,1)+'</button>'",
      "+2.5</button>'",
      "F11 步进按钮写死 2.5 → S38 红 + gearv G3 红（文案不再跟步长走）"),
     # 12) venues 掉出 IMPORT_KEEP_KEYS（S39 的 witness）
@@ -75,8 +75,8 @@ FAULTS = [
      "const IMPORT_KEEP_KEYS=['lang','theme','plateCfg','activeVenueId',",
      "F12 venues 掉登记 → S39 红（导入会丢场地库存）"),
     # 13) §5 权威解析被摘掉：prescriptionOf 无视 e.rx，退回 sets×reps 猜测（节点⑥的 witness）
-    (TPL, "  const parsed=parseRx(e&&e.rx);",
-     "  const parsed={parsed:false,groups:[],amrap:false,totalSets:0};",
+    (TPL, "  const parsed=parseRx(raw);",
+     "  const parsed={parsed:false,trivial:true,groups:[],amrap:false,totalSets:0};",
      "F13 rx 权威解析失效 → gearv G6 红（逐组结构全塌回单组猜测）"),
     # 14) 自重载荷格塌回原值：主数字不吃 effectiveKg（节点⑦⑧的 witness）
     (TPL, "_num=fmtLoad(gv.effectiveKg);",
@@ -87,8 +87,8 @@ FAULTS = [
      "  if(false) return;",
      "F15 挂片位 posts 失守 → gearv G8.4 红（非法 3 被写进 e.gear，契约枚举不再把关）"),
     # 16) 首页挂片卡退回纯文字：不画每位片叠，前四形态里挂片又跟 dumbbell/stack 挤成一行摘要（节点⑩的 witness）
-    (TPL, "      chips+='<i class=\"pb\" style=\"background:'+p.c+';height:'+Math.max(7,Math.round(p.h*0.55))+'px;width:'+Math.max(2,Math.round(p.cw*0.8))+'px\"></i>';",
-     "      chips+='<i class=\"none\"></i>';",
+    (TPL, "        chips+='<i class=\"pb\" style=\"background:'+p.c+';height:'+hh+'px;width:'+ww+'px\"></i>';",
+     "        chips+='<i class=\"none\"></i>';",
      "F16 首页挂片不画片叠 → gearv G8.6 红（前四形态退化，pb 视觉没了）"),
     # 17) setGearStacks 不再拒非法栈数：3 不在 stacks_options 也应被挡在门外（节点⑪的 witness）
     (TPL, "  if(STACKS_OPTIONS.indexOf(v)<0) return;",

@@ -50,7 +50,7 @@ import wkbook  # noqa: E402
 
 SCHEMA_PATH = os.path.join(_TOOLS, "schema", "RPL-Plan-v3.json")
 EXCHANGE_SCHEMA_PATH = os.path.join(_TOOLS, "schema", "RPL-Exchange-v3.json")
-GEAR_SCHEMA_PATH = os.path.join(_TOOLS, "schema", "RPL-Gear-v1.json")
+GEAR_SCHEMA_PATH = os.path.join(_TOOLS, "schema", "RPL-Gear-v2.json")
 SEED_PATH = os.path.join(_TOOLS, "seed.json")
 TEMPLATE_PATH = os.path.join(_TOOLS, "template.html")
 
@@ -99,7 +99,7 @@ def load_exchange_schema(path=None):
 
 
 def load_gear_schema(path=None):
-    """器械词表契约（schema/RPL-Gear-v1.json）：Gear 表 kind/source 值域的唯一出处。
+    """器械词表契约（schema/RPL-Gear-v2.json）：Gear 表 kind/source 值域与便携键的唯一出处。
     契约的 Gear 段用 gear_vocab 引用它而不是手抄枚举（红线 3），这里按引用解析。"""
     p = os.path.abspath(path or GEAR_SCHEMA_PATH)
     if p not in _SCHEMA_CACHE:
@@ -630,6 +630,21 @@ def _workouts_from_state(state, sch):
                 cat, mode = _text(ex.get("cat")), _text(ex.get("mode"))
                 p = proto.get(mode) or {}
                 load = ex.get("load", "")
+                # 执行实况单源 = ex.setLog（逐组记录）：有它取末组 + 条数，没有才退回旧单值字段。
+                # 与 template.xWorkoutRows 同一口径（xlsxv 逐格对账），列序/列名不变。
+                sl = ex.get("setLog")
+                has_sl = isinstance(sl, list)
+                last = (sl[-1] if has_sl and sl and isinstance(sl[-1], dict) else {})
+                if has_sl:
+                    actual_reps = last.get("reps", "")
+                    actual_rpe = last.get("rpe", "")
+                    if actual_rpe is None:
+                        actual_rpe = ""
+                    done_sets = len(sl)
+                else:
+                    actual_reps = ex.get("actualReps", "")
+                    actual_rpe = ex.get("rpe", "")
+                    done_sets = ex.get("doneSets", "")
                 row = {
                     rc["week"]: _int(wk_key),
                     rc["day"]: day_id,
@@ -641,14 +656,14 @@ def _workouts_from_state(state, sch):
                     rc["movement"]: _text(ex.get("mv")),
                     rc["pct"]: "",
                     rc["load"]: load,
-                    rc["sets"]: p.get("sets", ""),
+                    rc["sets"]: ex.get("sets", p.get("sets", "")),
                     rc["reps"]: ex.get("reps", ""),
                     rc["rx"]: _text(ex.get("rx")),
                     rc["target_rpe"]: ex.get("targetRpe", ""),
                     rc["prog_rule"]: prog.get(mode, prog.get("_default", "")),
-                    rc["actual_reps"]: ex.get("actualReps", ""),
-                    rc["actual_rpe"]: ex.get("rpe", ""),
-                    rc["done_sets"]: ex.get("doneSets", ""),
+                    rc["actual_reps"]: actual_reps,
+                    rc["actual_rpe"]: actual_rpe,
+                    rc["done_sets"]: done_sets,
                     rc["done"]: bool(ex.get("done", False)),
                     rc["notes"]: _text(ex.get("notes")),
                 }
@@ -734,18 +749,23 @@ def _level_from_state(state, sch):
 # ---------------------------------------------------------------- Gear 附表（v2 新增，可选）
 
 
-def _gear_canonical_json(gear):
+def _gear_canonical_json(gear, allowed=None):
     """ex.gear → 落表文本：sort_keys + 无空格，键全 ASCII，与前端 xGearCanonical 逐字节同形。
 
     规范化是逐字节对账的前提：同一配置两次导出、Python 与 App 引擎各自序列化，
     结果必须一字符不差（xlsxv 盯着）。
+    allowed 给定时只保留便携键（RPL-Gear-v2 的 profile.portable_gear_keys）：
+    销位 / 当日实称 / 当日场地是机器事实，不许随计划走。
     """
+    if allowed is not None:
+        gear = {k: v for k, v in gear.items() if k in allowed}
     return json.dumps(gear, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _gear_from_state(state, sch):
     """逐动作器械配置 → Gear 行。只带 e.gear 的动作才占一行；kind/source 是人读冗余列。"""
     rc = _spec(sch, "Gear")["role_columns"]
+    allowed = (load_gear_schema().get("profile") or {}).get("portable_gear_keys")
     rows = []
     for wk_key in _week_keys(state):
         wk = state["weeks"][wk_key]
@@ -760,7 +780,7 @@ def _gear_from_state(state, sch):
                     rc["row"]: ex.get("row", ""),
                     rc["kind"]: _text(gear.get("kind")),
                     rc["source"]: _text(ex.get("gearSource")) or "plan",
-                    rc["gear_json"]: _gear_canonical_json(gear),
+                    rc["gear_json"]: _gear_canonical_json(gear, allowed),
                 })
     return rows
 
@@ -971,6 +991,20 @@ def _validate_gear(sch, plan, res, day_ids, total_weeks):
             continue
         if not isinstance(obj, dict):
             res["errors"].append(err(sch, name, r, json_col, "gear_json 应为对象，实为 %s" % type(obj).__name__))
+            continue
+        prof = gear_sch.get("profile") or {}
+        portable = prof.get("portable_gear_keys") or []
+        local_only = prof.get("local_only_gear_keys") or []
+        if "stackCfg" in obj:
+            res["errors"].append(err(sch, name, r, json_col, "旧版插片配置不支持，请用新版重新导出计划"))
+        for lk in local_only:
+            if lk in obj:
+                res["errors"].append(err(sch, name, r, json_col, "本机字段 %s 不得随计划导入" % lk))
+        for uk in obj.keys():
+            if uk == "stackCfg":
+                continue
+            if uk not in portable:
+                res["errors"].append(err(sch, name, r, json_col, "未知器械键 %s（不在便携键白名单）" % uk))
 
 
 def _profile_map(plan, sch, res):
@@ -1679,7 +1713,13 @@ def _apply_workouts(sch, plan, state, proto, total):
             }
             reps, tr = _num(row.get(rc["reps"])), _num(row.get(rc["target_rpe"]))
             ex["reps"] = reps if reps is not None else p.get("reps", 0)
-            ex["rx"] = _text(row.get(rc["rx"])) or p.get("rx", "")
+            # rx 原文是权威处方：非空原文一律照搬（认不出由 App 侧显式暴露，不拿 proto 顶替）。
+            # 只有「这一格本来就是空的」才按 proto 兜底——那是计划没写，不是写了看不懂。
+            rx_text = _text(row.get(rc["rx"]))
+            ex["rx"] = rx_text if rx_text else p.get("rx", "")
+            st = _int(row.get(rc["sets"]))
+            if st is not None:
+                ex["sets"] = st
             ex["targetRpe"] = tr if tr is not None else rpe_by_week.get(wk, base_rpe_default)
             ar = _num(row.get(rc["actual_rpe"]))
             if ar is not None:

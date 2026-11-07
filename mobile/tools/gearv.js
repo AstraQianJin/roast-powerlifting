@@ -21,7 +21,7 @@ const PORT = 9880 + Math.floor(Math.random() * 20);
 
 /* 契约里步长公式的独立读法：本文件不复制数值，只从同一份 JSON 取规则名，
    数值参照在 harness 侧按「min_plate / posts / increment × sides / gcd / unit」重算。 */
-const RULE = JSON.parse(fs.readFileSync(path.join(HERE, 'schema', 'RPL-Gear-v1.json'), 'utf8'));
+const RULE = JSON.parse(fs.readFileSync(path.join(HERE, 'schema', 'RPL-Gear-v2.json'), 'utf8'));
 
 let PASS = 0, FAIL = 0, LINES = [];
 function T(id, name, ok, detail) {
@@ -87,9 +87,9 @@ const G1 = `(function(){
     if(extra) Object.keys(extra).forEach(function(k){o[k]=extra[k];});
     return o;
   }
-  function E(kind,load,gear){
+  function E(kind,load,gear,mv){
     var g={kind:kind}; if(gear) Object.keys(gear).forEach(function(k){g[k]=gear[k];});
-    return {mv:'GEARV_PROBE',cat:'S.Squat',mode:'T1.Mod',load:load,reps:5,gear:g};
+    return {mv:(mv||'GEARV_PROBE'),cat:'S.Squat',mode:'T1.Mod',load:load,reps:5,gear:g};
   }
   function V(e,bw,iv){
     var v=solveLoad(e,{bw:bw,inventory:iv});
@@ -98,7 +98,18 @@ const G1 = `(function(){
   }
   var bg={barKg:20,collarOn:true,collarPairKg:5};
   var pg={posts:2,baseKg:20};
-  var sg={stacks:2,stackCfg:[{baseKg:20,incKg:2.5,pin:8},{baseKg:20,incKg:5,pin:4}]};
+  /* 插片档位表已改为器械资料（record.stack.ladders，绝对 kg）。夹具显式登记两台表：
+     A 栈 20 起每档 2.5（9 档）、B 栈 20 起每档 5（5 档）；销位仍是动作行 e.gear.stackPins。 */
+  var rec=gearRecordAt(resolveVenueId({mv:'GEARV_PROBE'}),'GEARV_PROBE',true);
+  rec.kind='stack';
+  rec.stack={v:1,ladders:[
+    {v:1,levels:[20,22.5,25,27.5,30,32.5,35,37.5,40],updatedAt:'2026-01-01T00:00:00.000Z'},
+    {v:1,levels:[20,25,30,35,40],updatedAt:'2026-01-01T00:00:00.000Z'}]};
+  /* 非等差夹具：前段 2.5、后段 3.5，独占一台机器，避免覆盖双栈那条。 */
+  var mix=gearRecordAt(resolveVenueId({mv:'GEARV_PROBE_MIX'}),'GEARV_PROBE_MIX',true);
+  mix.kind='stack';
+  mix.stack={v:1,ladders:[{v:1,levels:[20,22.5,25,28.5,32,35.5,39],updatedAt:'2026-01-01T00:00:00.000Z'}]};
+  var sg={stacks:2,stackPins:[8,4]};
   var dg={sides:2,incrementKg:2.5};
   var wg={lever:1};
   var spg={unitKg:24,count:2};
@@ -110,6 +121,8 @@ const G1 = `(function(){
     plRem: V(E('plate',101,pg),87.5,inv(COARSE)),
     st:    V(E('stack',80,sg),87.5,inv(ALL)),
     stOff: V(E('stack',85,sg),87.5,inv(ALL)),
+    stNo:  V(E('stack',80,sg,'GEARV_PROBE_NO'),87.5,inv(ALL)),
+    stMix: V(E('stack',32,{stacks:1},'GEARV_PROBE_MIX'),87.5,inv(ALL)),
     db:    V(E('dumbbell',24,dg),87.5,inv(ALL)),
     dbSnap:V(E('dumbbell',24,dg),87.5,inv(ALL,{dumbbells:[20,22,25,30]})),
     bwPlus:V(E('bw',25,wg),87.5,inv(ALL)),
@@ -135,6 +148,8 @@ const G1 = `(function(){
   };
   o.fallback=GEAR_SCHEMA.step_rule.no_stock_fallback;
   o.kinds=GEAR_KINDS.slice();
+  /* 夹具登记了两条档位表记录；量完即还原，G0.2 靠快照哈希复核零副作用。 */
+  window.__gearv.restore();
   return JSON.stringify(o);
 })()`;
 
@@ -159,7 +174,12 @@ const G3 = `(function(){
   var bar={mv:'W1_A_GEARV_BB',cat:'S.Squat',mode:'T1.Mod',load:100,reps:5,rpe:8,
            gear:{kind:'barbell',barKg:20,collarOn:true,collarPairKg:5}};
   var stk={mv:'W1_A_GEARV_ST',cat:'S.Squat',mode:'T1.Mod',load:80,reps:5,rpe:8,
-           gear:{kind:'stack',stacks:2,stackCfg:[{baseKg:20,incKg:2.5,pin:8},{baseKg:20,incKg:5,pin:4}]}};
+           gear:{kind:'stack',stacks:2,stackPins:[8,4]}};
+  var recS=gearRecordAt(resolveVenueId(stk),stk.mv,true);
+  recS.kind='stack';
+  recS.stack={v:1,ladders:[
+    {v:1,levels:[20,22.5,25,27.5,30,32.5,35,37.5,40],updatedAt:'2026-01-01T00:00:00.000Z'},
+    {v:1,levels:[20,25,30,35,40],updatedAt:'2026-01-01T00:00:00.000Z'}]};
   d.exercises=[bar,stk];
   renderExercises();
   var arts=[].slice.call(document.querySelectorAll('#exList article.ex'));
@@ -186,7 +206,8 @@ const G3 = `(function(){
   var venueBarBefore=venueInv().bar_kg;
   setGearBarKg(15);
   out.bar15={eBar:d.exercises[0].gear.barKg,
-             def:(state.gearDefaults||{})[d.exercises[0].mv]?(state.gearDefaults[d.exercises[0].mv].barKg):null,
+             def:(function(){var r=gearRecordOf(d.exercises[0]);
+               return (r&&r.params&&r.params.barKg!=null)?r.params.barKg:null;})(),
              venueBefore:venueBarBefore,venueAfter:venueInv().bar_kg};
   var coBefore=d.exercises[0].gear.collarOn;
   toggleGearCollars();
@@ -303,7 +324,7 @@ const G5 = `(function(){
 const G6 = `(function(){
   function P(rx,mode){
     var s=prescriptionOf({mode:(mode||'T1.Mod'),reps:5,rx:rx});
-    return {fromRx:!!s.fromRx, sets:s.sets, reps:s.reps, rx:s.rx, tag:s.tag,
+    return {fromRx:!!s.fromRx, invalid:!!s.invalid, sets:s.sets, reps:s.reps, rx:s.rx, tag:s.tag,
             backoff:+(s.backoff||0).toFixed(3), amrap:!!s.amrap, n:(s.groups||[]).length,
             g:(s.groups||[]).map(function(x){ return x.sets+'x'+x.reps+'@'+x.factor; })};
   }
@@ -311,6 +332,16 @@ const G6 = `(function(){
   var tp=P('1×1 + 1×4@-10%','Top.Single');
   var am=P('4×12+','T3.Mod');
   var st=P('5×5','T1.Mod');
+  /* 计划里真实出现过的写法（2026-11-09 起的新 8 周计划）：无空格 +、全角减号、绝对强度、单段多组、段注。 */
+  var ds=P('1×3+2×3−5%','Top.Set');
+  var ab=P('2×5 @60%','T1.Mod');
+  var b3=P('3×2','T2.5x5');
+  var r15=P('2×15','T3.Mod');
+  var cm=P('1×1 · 第 1 把','Top.Test');
+  var zh=P('1×3 顶组 + 2×3 减 5% 补组','Top.Set');
+  /* sets 列驱动组数：计划写的 sets 优先于 rx 拆出来的组数；缺省才回到 rx / proto。 */
+  var own=prescriptionOf({mode:'T1.Mod',reps:5,rx:'5×5',sets:3});
+  var ownS={fromRx:!!own.fromRx,invalid:!!own.invalid,sets:own.sets,reps:own.reps,tag:own.tag};
   var bad=P('乱七八糟','Custom');
   var empty=P('','T1.Mod');
   /* 全表扫一条真能解析的 Top.* 种子行：只读，不动 state（出段快照靠 G0.2 复核零副作用）。 */
@@ -328,6 +359,8 @@ const G6 = `(function(){
   });
   var L=140, S=2.5, boW=mround(L*0.9,S);
   return JSON.stringify({ts:ts,tp:tp,am:am,st:st,bad:bad,empty:empty,live:live,
+                         ds:ds,ab:ab,b3:b3,r15:r15,cm:cm,zh:zh,own:ownS,
+                         so7:setsOf('T1.Mod',7),so0:setsOf('T1.Mod',0),
                          boW:boW,delta:Math.abs(L*0.9-boW)});
 })()`;
 
@@ -377,7 +410,7 @@ const G8 = `(function(){
   out.plHtml=arts[0]?arts[0].innerHTML:'';
   out.smHtml=arts[1]?arts[1].innerHTML:'';
   function stripTxt(i){ var s=arts[i]&&arts[i].querySelector('.plate-strip'); return s?s.textContent:''; }
-  function postCnt(i){ return arts[i]?arts[i].querySelectorAll('.plate-strip .geg-post').length:0; }
+  function postCnt(i){ return arts[i]?arts[i].querySelectorAll('.plate-strip [data-gz="horn"]').length:0; }
   out.plStripText=stripTxt(0); out.smStripText=stripTxt(1);
   out.plPosts=postCnt(0); out.smPosts=postCnt(1);
   out.smStrip=gearStripText(gearViewOf(sm));
@@ -388,14 +421,14 @@ const G8 = `(function(){
   out.postOpts=(function(){var s=document.getElementById('edPosts');return s?s.options.length:-1;})();
   out.expPostOpts=POSTS_OPTIONS.length;
   var bar=document.getElementById('edPlateBar');
-  out.postBlocks=(bar.innerHTML.match(/class="gp-post"/g)||[]).length;
-  out.chipBlocks=(bar.innerHTML.match(/class="pv-chip/g)||[]).length;
+  out.postBlocks=(bar.innerHTML.match(/data-gz="horn"/g)||[]).length;
+  out.discBlocks=(bar.innerHTML.match(/data-gz="disc"/g)||[]).length;
   out.sleeveBar=bar.querySelectorAll('.pv-sleeve').length;
   out.noSleeveBar=bar.classList.contains('no-sleeve');
   /* posts 写回：合法 4 生效、非法 3 拒 */
   setGearPosts(4);
   out.post4=d.exercises[0].gear.posts;
-  out.blocksAfter4=(document.getElementById('edPlateBar').innerHTML.match(/class="gp-post"/g)||[]).length;
+  out.blocksAfter4=(document.getElementById('edPlateBar').innerHTML.match(/data-gz="horn"/g)||[]).length;
   setGearPosts(3);
   out.postAfterBad=d.exercises[0].gear.posts;
   /* 史密斯开关 + 基数写回（下限 0） */
@@ -417,14 +450,18 @@ const G8 = `(function(){
   return JSON.stringify(out);
 })()`;
 
-/* ---------------- G9：节点⑪⑫ 插片/特殊编辑器 + 竖向配重堆/计数格 + 首页形态 ----------------
-   引擎数学（G1.6/1.7/1.13/1.14）已钉；这组钉接线：栈数从契约派生、每栈 base/inc/pin 带区间钳制写回、
-   龙门架开关、特殊类手填覆盖、插片/特殊在首页与配重台各自的形态。全部真点，出段 restore，G0.2 复核。 */
+/* ---------------- G9：节点⑪⑫ 插片/特殊编辑器 + 档位表面板 + 竖向配重堆 ----------------
+   引擎数学（G1.6/1.7/1.13/1.14/1.17/1.18）已钉；这组钉接线：栈数从契约派生、档位表逐机编辑、
+   销位只写动作行、旧 base/inc 字段不再存在、龙门架开关、特殊类手填覆盖。全部真点，出段 restore。 */
 const G9 = `(function(){
   var out={};
   var d=day(), savedEx=d.exercises;
   var st={mv:'W1_A_GEARV_ST9',cat:'S.Squat',mode:'T1.Mod',load:80,reps:5,rpe:8,
-          gear:{kind:'stack',stacks:1,variant:'standard',stackCfg:[{baseKg:20,incKg:2.5,pin:8}]}};
+          gear:{kind:'stack',stacks:1,variant:'standard',stackPins:[8]}};
+  var recSt=gearRecordAt(resolveVenueId(st),st.mv,true);
+  recSt.kind='stack';
+  recSt.stack={v:1,ladders:[{v:1,levels:[20,22.5,25,27.5,30,32.5,35,37.5,40],
+                             updatedAt:'2026-01-01T00:00:00.000Z'}]};
   var sp={mv:'W1_A_GEARV_SP9',cat:'S.Squat',mode:'T1.Mod',load:0,reps:5,rpe:8,
           gear:{kind:'special',label:'壶铃',unitKg:16,count:3}};
   var spm={mv:'W1_A_GEARV_SPM9',cat:'S.Squat',mode:'T1.Mod',load:0,reps:5,rpe:8,
@@ -441,7 +478,7 @@ const G9 = `(function(){
   out.stStripHtml=stripHtml(0);
   out.sp0B=lb(1); out.sp0Strip=strip(1); out.sp0StripHtml=stripHtml(1);
   out.sp1B=lb(2); out.sp1Strip=strip(2); out.sp1StripHtml=stripHtml(2);
-  /* 插片编辑器：配置行 + 竖向配重堆 */
+  /* 插片编辑器：配置行 + 竖向配重堆（9 档 ≤14 全画，销位 8 在最底档、0..8 全实心） */
   openEditor(0);
   var sc=document.getElementById('gearStackCfg');
   out.cfgShown=sc?sc.style.display:null;
@@ -450,24 +487,49 @@ const G9 = `(function(){
   out.cableChip=!!(sc&&sc.querySelector('.chip-s'));
   out.spHiddenInStack=(document.getElementById('gearSpecialCfg')||{}).style.display;
   var bar=document.getElementById('edPlateBar');
-  out.cols=(bar.innerHTML.match(/class="gp-stack-col"/g)||[]).length;
-  out.onBlocks=bar.querySelectorAll('.gp-block.on').length;
+  out.cols=(bar.innerHTML.match(/class="gz-stack-col"/g)||[]).length;
+  out.winBlocks=bar.querySelectorAll('.gz-block').length;
+  out.onBlocks=bar.querySelectorAll('.gz-block[data-engaged="1"]').length;
+  out.hasPin=!!bar.querySelector('[data-gz="pin"]');
   out.sleeveStack=bar.querySelectorAll('.pv-sleeve').length;
   out.noSleeveStack=bar.classList.contains('no-sleeve');
-  /* 栈数写回：合法 2 生效（gearOf 侧把 stackCfg 归一到 2 条、网格长到两列） */
+  /* 栈数写回：合法 2 生效，但第二栈没有档位表 → 只出「未登记」提示，不画假刻度 */
   setGearStacks(2);
   out.stacks2=d.exercises[0].gear.stacks;
-  out.cfgLen2=gearOf(d.exercises[0]).stackCfg.length;
-  out.colsAfter2=(function(){var h=document.getElementById('edPlateBar').innerHTML;
-    return (h.match(/class="gp-stack-col"/g)||[]).length;})();
-  /* 每栈字段写回 + 区间钳制（pin 上限 60） */
+  out.cfgRows=(sc.innerHTML.match(/class="gp-cfg-row"/g)||[]).length;
+  out.noTableTxt=/未登记档位表/.test(sc.textContent);
+  out.colsAfter2=(function(){var h=document.getElementById('edPlateBar').innerText||'';
+    var b=document.getElementById('edPlateBar');
+    return (b.innerHTML.match(/class="gz-stack-col"/g)||[]).length;})();
+  /* 销位只写动作行 + 区间钳制（上限从契约读） */
   setGearStackField(0,'pin',10);
-  out.pin0=d.exercises[0].gear.stackCfg[0].pin;
+  out.pin0=d.exercises[0].gear.stackPins[0];
   setGearStackField(0,'pin',999);
-  out.pinAfterBad=d.exercises[0].gear.stackCfg[0].pin;
+  out.pinAfterBad=d.exercises[0].gear.stackPins[0];
+  /* 旧模型字段不再被接受：字段写到器械资料 params 也不再含 baseKg/incKg，动作行无 stackCfg */
   setGearStackField(1,'incKg',7);
-  out.cfg2inc=(d.exercises[0].gear.stackCfg[1]||{}).incKg;
+  var rr=gearRecordOf(d.exercises[0])||{};
+  out.oldKeys=['stackCfg','baseKg','incKg'].filter(function(k){
+    return ((d.exercises[0].gear||{})[k]!==undefined)||(((rr.params)||{})[k]!==undefined);
+  }).join(',');
+  out.cfg2inc=!(('incKg' in ((rr.params)||{})) || ('incKg' in ((d.exercises[0].gear||{}))));
   out.loadStackUntouched=d.exercises[0].load;
+  /* 档位表逐机编辑（走面板保存路径）：前段 2.5、后段 3.5 原样入库 */
+  setGearStacks(1);
+  setGearStackPin(0,8);
+  openStackSheet(0);
+  stackDraft.byStack[0]=[20,22.5,25,28.5,32,35.5,39].map(String);
+  renderStackSheet();
+  stackSheetSave();
+  var lad=stackLadderOf(st);
+  out.savedLevels=lad.ok?lad.ladders[0].join(','):'ERR';
+  out.savedCount=(rr.stack&&rr.stack.ladders&&rr.stack.ladders[0].levels.length)||0;
+  out.savedStep=stackStepKg(lad.ok?lad.ladders:null,0);
+  setGearStackPin(0,4);
+  out.pinAfterSave=d.exercises[0].gear.stackPins[0];
+  /* 非等差 ± 走相邻可达档：28.5 → 32（+3.5），不是 +2.5 */
+  var nx=nextReachable(st,28.5,1,1);
+  out.next={load:nx?nx.load:null,pins:nx?nx.pins.join(','):null};
   /* 龙门架开关：variant 来回翻 */
   toggleGearCable();
   out.variantC=d.exercises[0].gear.variant;
@@ -485,7 +547,7 @@ const G9 = `(function(){
   out.spSleeve=(function(){var b=document.getElementById('edPlateBar');
     return b.querySelectorAll('.pv-sleeve').length;})();
   out.spNoSleeve=document.getElementById('edPlateBar').classList.contains('no-sleeve');
-  out.spCellsEdit=(document.getElementById('edPlateBar').innerHTML.match(/class="sp-cell"/g)||[]).length;
+  out.spCellsEdit=(document.getElementById('edPlateBar').innerHTML.match(/class="gz-unit"/g)||[]).length;
   out.unitInShown=document.getElementById('edSpUnit').value;
   setGearUnitKg(-1);  out.unitAfterBad=d.exercises[1].gear.unitKg;
   setGearCount(0);    out.countAfterBad=d.exercises[1].gear.count;
@@ -502,10 +564,11 @@ const G9 = `(function(){
   return JSON.stringify(out);
 })()`;
 
+
 /* ---------------- G10：节点⑫ 日程→场地引用 + equip→kind 推断的设置页修正 ----------------
    临时场地 gymX 只有 20/10 片 ⇒ 杠铃步长 2×10=20，与 legacy 的 0.5 拉开一个可判的差。
    四条回落腿钉「指针没设/指到不存在的场地 ⇒ 一律当前激活场地，绝不崩成 0」；
-   setGearGuess 走 gearDefaults 单轨（gearOf 认 def 优先于 equip 推断），非法 kind 不落残条目。 */
+   setGearGuess 只写器械资料 record.kind（gearOf 单轨认它），非法 kind 不落残条目。 */
 const G10 = `(function(){
   var out={};
   var d=day(), savedEx=d.exercises;
@@ -525,12 +588,12 @@ const G10 = `(function(){
   out.stepUnknownVenue=stepOf(E(Object.assign({},gB,{dayVenueId:'nope'}),'local'));
   var eUntouched=E(Object.assign({},gB,{dayVenueId:'gymX'}),'local');
   out.loadUntouched=eUntouched.load===100;
-  /* 逐 mv 修正：gearDefaults 写入 + gearOf 认得；非法 kind 不留残 */
+  /* 逐 mv 修正：器械资料 record.kind 写入 + gearOf 认得；非法 kind 不留残 */
   setGearGuess('G10_GUESS','dumbbell');
-  out.defKind=(state.gearDefaults['G10_GUESS']||{}).kind;
+  out.defKind=(gearRecordOf({mv:'G10_GUESS'})||{}).kind;
   out.guessKind=gearOf({mv:'G10_GUESS'}).kind;
   setGearGuess('G10_BAD','nope');
-  out.badRejected=!state.gearDefaults['G10_BAD'];
+  out.badRejected=!gearRecordOf({mv:'G10_BAD'});
   /* 设置页推断清单：真 mv 行、六 chip、点一下来源翻「已修正」 */
   renderEnvSheet();
   var items=[].slice.call(document.querySelectorAll('#gearGuessRow .gg-item'));
@@ -540,7 +603,7 @@ const G10 = `(function(){
   if(items.length){
     var mv0=_ggMvList[0];
     setGearGuessAt(0,'stack');
-    out.stackApplied=(state.gearDefaults[mv0]||{}).kind==='stack';
+    out.stackApplied=(gearRecordOf({mv:mv0})||{}).kind==='stack';
     out.srcFixed=/已修正|set/.test(document.querySelector('#gearGuessRow .gg-item .gg-src').textContent);
   }
   closeAllSheets();
@@ -562,7 +625,11 @@ const G11 = `(function(){
   var sm={mv:'W1_A_G11SM',cat:'S.Squat',mode:'T1.Mod',load:80,reps:8,rpe:8,
           gear:{kind:'plate',posts:4,variant:'smith',baseKg:20}};
   var st={mv:'W1_A_G11ST',cat:'S.Squat',mode:'T1.Mod',load:60,reps:8,rpe:8,
-          gear:{kind:'stack',stacks:1,variant:'cable',stackCfg:[{baseKg:0,incKg:5,pin:6}]}};
+          gear:{kind:'stack',stacks:1,variant:'cable',stackPins:[6]}};
+  var recG=gearRecordAt(resolveVenueId(st),st.mv,true);
+  recG.kind='stack';
+  recG.stack={v:1,ladders:[{v:1,levels:[0,5,10,15,20,25,30,35,40,45,50,55],
+                           updatedAt:'2026-01-01T00:00:00.000Z'}]};
   var db={mv:'W1_A_G11DB',cat:'S.Squat',mode:'T1.Mod',load:48,reps:8,rpe:8,
           gear:{kind:'dumbbell',sides:2,incrementKg:2.5}};
   var bw={mv:'W1_A_G11BW',cat:'S.Squat',mode:'T1.Mod',load:0,reps:8,rpe:8,
@@ -570,17 +637,226 @@ const G11 = `(function(){
   var sp={mv:'W1_A_G11SP',cat:'S.Squat',mode:'T1.Mod',load:0,reps:8,rpe:8,
           gear:{kind:'special',label:'壶铃',unitKg:16,count:2}};
   d.exercises=[bb,pl,sm,st,db,bw,sp];
+  /* 杠铃条的片叠取决于场地库存：先把常用片备齐，否则「没库存＝空杠」会让形状断言随本机状态漂。 */
+  if(typeof plateOn==='function'){
+    [25,20,15,10,5,2.5,1.25].forEach(function(k){ if(!plateOn(k)) togglePlateKg(k); });
+  }
   renderExercises();
   function art(i){ return document.querySelectorAll('#exList article.ex')[i]; }
   function html(i){ return art(i)?art(i).innerHTML:''; }
   function k(i){ var s=art(i)&&art(i).querySelector('.plate-strip'); return s?s.getAttribute('data-k'):''; }
+  function horn(i){ return art(i)?art(i).querySelectorAll('.plate-strip [data-gz="horn"]').length:0; }
   out.kinds=[k(0),k(1),k(2),k(3),k(4),k(5),k(6)].join(',');
+  out.plHorns=horn(1); out.smHorns=horn(2);
   out.bb=html(0); out.pl=html(1); out.sm=html(2); out.st=html(3);
   out.db=html(4); out.bw=html(5); out.sp=html(6);
   out.h1=gearKindGuess('插片高位下拉');
   out.h2=gearKindGuess('挂片跪姿单腿弯举');
   out.h3=gearKindGuess('坐姿器械髋外展');
   out.h4=gearKindGuess('杠铃划船');
+  d.exercises=savedEx;
+  window.__gearv.restore();
+  return JSON.stringify(out);
+})()`;
+
+/* ---------------- G14：逐机档位表（允许非等差）+ 跨动作隔离 ----------------
+   新模型每一台插片机各自一把档位表，动作只存销位。这里同时钉三件事：
+   ① 绝对 kg 表原样入库（2.5 与 3.5 混排不是等差）；② 两台机器的表互不覆盖、销位互不串；
+   ③ 坏表（降序/越界）只让 solver 退回 exact=false，绝不改写用户存的原文。 */
+const G14 = `(function(){
+  var out={};
+  var d=day(), savedEx=d.exercises;
+  var A={mv:'W1_A_GEARV_LAD_A',cat:'S.Squat',mode:'T1.Mod',load:25,reps:5,rpe:8,
+         gear:{kind:'stack',stacks:1,variant:'standard'}};
+  var B={mv:'W1_A_GEARV_LAD_B',cat:'S.Squat',mode:'T1.Mod',load:20,reps:5,rpe:8,
+         gear:{kind:'stack',stacks:1,variant:'standard'}};
+  d.exercises=[A,B];
+  stackLadderWrite(A,0,[20,22.5,25,28.5,32,35.5,39]);
+  stackLadderWrite(B,0,[10,15,20,25,30]);
+  savePrefsOnly();
+  var vA=solveLoad(A), vB=solveLoad(B);
+  out.a={ach:vA.achievedKg,exact:vA.exact,step:vA.stepKg,pin:vA.recipe.stacks[0].pin,
+         levels:vA.recipe.stacks[0].levels.join(',')};
+  out.b={ach:vB.achievedKg,exact:vB.exact,step:vB.stepKg,pin:vB.recipe.stacks[0].pin,
+         levels:vB.recipe.stacks[0].levels.join(',')};
+  out.nextA=nextReachable(A,28.5,1,1);
+  out.nextB=nextReachable(B,10,1,1);
+  /* 只在 A 上点销位：A 的实配变 32，B 的销位与实配一字不动 */
+  writeExercisePins(A,[4]);
+  var vA2=solveLoad(A);
+  out.aPin={load:vA2.achievedKg,pins:A.gear.stackPins.join(','),
+            bPins:(B.gear&&B.gear.stackPins)?B.gear.stackPins.join(','):'none',
+            bAch:solveLoad(B).achievedKg};
+  var ra=gearRecordOf(A), rb=gearRecordOf(B);
+  out.recA=(ra&&ra.stack&&ra.stack.ladders[0].levels||[]).join(',');
+  out.recB=(rb&&rb.stack&&rb.stack.ladders[0].levels||[]).join(',');
+  /* 坏表（降序）：不改原文、solver 明确 exact=false + 警告 */
+  stackLadderWrite(B,0,[25,20,15]);
+  var vBbad=solveLoad(B);
+  out.bad={ok:stackLadderOf(B).ok,exact:vBbad.exact,ach:vBbad.achievedKg,
+           warn:vBbad.warnings.join(' '),
+           kept:(gearRecordOf(B).stack.ladders[0].levels||[]).join(',')};
+  d.exercises=savedEx;
+  window.__gearv.restore();
+  return JSON.stringify(out);
+})()`;
+
+/* ---------------- G15：器械图形的可判性质（销位单调 / 零文字 / 挂片余量 / 尺寸 / 窗口） ----------------
+   图形重画后旧类名全部退役，这里只盯新钩子：data-gz / data-pin / data-engaged / data-mode。
+   每条都走真渲染（renderExercises / openEditor），出段 restore 到 G0 快照，由 G0.2 复核零副作用。 */
+const G15 = `(function(){
+  var out={};
+  var d=day(), savedEx=d.exercises;
+  var LV9=[20,22.5,25,27.5,30,32.5,35,37.5,40];
+  var LV20=[];
+  for(var k=0;k<20;k++) LV20.push(20+k*2.5);
+  function mkStack(mv,pin,levels){
+    var e={mv:mv,cat:'S.Squat',mode:'T1.Mod',load:20,reps:5,rpe:8,
+           gear:{kind:'stack',stacks:1,variant:'standard',stackPins:[pin]}};
+    var rec=gearRecordAt(resolveVenueId(e),e.mv,true);
+    rec.kind='stack';
+    rec.stack={v:1,ladders:[{v:1,levels:levels,updatedAt:'2026-01-01T00:00:00.000Z'}]};
+    return e;
+  }
+  function cardSvg(i,sel){
+    var a=document.querySelectorAll('#exList article.ex')[i];
+    return a?a.querySelector('.plate-strip '+sel):null;
+  }
+  /* 15.1 销位单调：9 档、pin 0..8，卡上 data-pin 与实心块数必须严格递增。 */
+  var st=mkStack('W1_A_GEARV_PIN15',0,LV9);
+  d.exercises=[st];
+  openEditor(0);
+  out.mono=[];
+  for(var p=0;p<9;p++){
+    setGearStackPin(0,p); renderExercises();
+    var sv=cardSvg(0,'[data-gz="stack"]');
+    out.mono.push(sv?{pin:+sv.getAttribute('data-pin'),
+      eng:sv.querySelectorAll('[data-engaged="1"]').length}:(null));
+  }
+  /* 15.2 六类条内零文字：每个 .gz-svg 无 textContent / 无 <text>，特殊单元同理。 */
+  var bb={mv:'W1_A_GEARV_TX15_BB',cat:'S.Squat',mode:'T1.Mod',load:100,reps:5,rpe:8,
+          gear:{kind:'barbell',barKg:20,collarOn:true,collarPairKg:5}};
+  var pl={mv:'W1_A_GEARV_TX15_PL',cat:'S.Squat',mode:'T1.Mod',load:60,reps:8,rpe:8,
+          gear:{kind:'plate',posts:2,variant:'standard',baseKg:20}};
+  var st2=mkStack('W1_A_GEARV_TX15_ST',4,LV9);
+  var db={mv:'W1_A_GEARV_TX15_DB',cat:'S.Squat',mode:'T1.Mod',load:24,reps:8,rpe:8,
+          gear:{kind:'dumbbell',sides:2,incrementKg:2.5}};
+  var bw={mv:'W1_A_GEARV_TX15_BW',cat:'S.Squat',mode:'T1.Mod',load:0,reps:8,rpe:8,
+          gear:{kind:'bw',lever:1}};
+  var sp={mv:'W1_A_GEARV_TX15_SP',cat:'S.Squat',mode:'T1.Mod',load:0,reps:8,rpe:8,
+          gear:{kind:'special',label:'壶铃',unitKg:16,count:3}};
+  d.exercises=[bb,pl,st2,db,bw,sp];
+  renderExercises();
+  out.tx={svg:0,text:0,poly:0,special:0,sBad:0};
+  [].slice.call(document.querySelectorAll('#exList article.ex .plate-strip')).forEach(function(s){
+    var svgs=s.querySelectorAll('.gz-svg');
+    out.tx.svg+=svgs.length;
+    svgs.forEach(function(v){
+      if(v.textContent!=='') out.tx.text++;
+      if(v.querySelectorAll('text').length) out.tx.poly++;
+    });
+    var spn=s.querySelectorAll('.gz-special');
+    out.tx.special+=spn.length;
+    spn.forEach(function(x){ if(x.textContent!=='') out.tx.sBad++; });
+  });
+  /* 15.3 挂片空轴/余量：低于基数与粗库存余数都要画出 ghost，卡片不写「无片」。 */
+  state.venues.gymC={id:'gymC',name:'GymC',kind:'gym',
+    inventory:{bar_kg:20,collar_on:false,collar_pair_kg:5,plates:{'20':null,'10':null},dumbbells:null}};
+  var low={mv:'W1_A_GEARV_GH15_LOW',cat:'S.Squat',mode:'T1.Mod',load:12,reps:8,rpe:8,
+           gear:{kind:'plate',posts:2,variant:'standard',baseKg:20}};
+  var coarse={mv:'W1_A_GEARV_GH15_C',cat:'S.Squat',mode:'T1.Mod',load:101,reps:8,rpe:8,
+              gearSource:'local',gear:{kind:'plate',posts:2,variant:'standard',baseKg:20,dayVenueId:'gymC'}};
+  d.exercises=[low,coarse];
+  renderExercises();
+  function plateInfo(i){
+    var a=document.querySelectorAll('#exList article.ex')[i];
+    var sv=a?a.querySelector('.plate-strip [data-gz="plate"]'):null;
+    return {ghost:sv?sv.querySelectorAll('[data-gz="ghost"]').length:0,
+            txt:a?a.querySelector('.plate-strip').textContent:''};
+  }
+  out.ghostLow=plateInfo(0); out.ghostCoarse=plateInfo(1);
+  /* 15.4 挂片尺寸：大图 48px，小图 26px（不是 40px）。 */
+  d.exercises=[coarse];
+  renderExercises();
+  var small=cardSvg(0,'[data-gz="plate"]');
+  out.smallH=small?small.style.height:'';
+  openEditor(0);
+  var ed=document.getElementById('edPlateBar');
+  var big=ed?ed.querySelector('[data-gz="plate"]'):null;
+  out.bigH=big?big.style.height:'';
+  closeAllSheets();
+  /* 15.5 插片窗口：20 档、pin 15 → 只画 14 块，窗口 lo=6..19，engaged=10。 */
+  var st3=mkStack('W1_A_GEARV_WIN15',15,LV20);
+  d.exercises=[st3];
+  openEditor(0); setGearStackPin(0,15); renderExercises();
+  var wsv=cardSvg(0,'[data-gz="stack"]');
+  out.win=null;
+  if(wsv){
+    var idxs=[].slice.call(wsv.querySelectorAll('.gz-block')).map(function(b){return +b.getAttribute('data-idx');});
+    out.win={pin:+wsv.getAttribute('data-pin'),blocks:idxs.length,
+      min:Math.min.apply(null,idxs),max:Math.max.apply(null,idxs),
+      eng:wsv.querySelectorAll('[data-engaged="1"]').length,
+      hasPin:!!wsv.querySelector('[data-gz="pin"]')};
+  }
+  closeAllSheets();
+  d.exercises=savedEx;
+  window.__gearv.restore();
+  return JSON.stringify(out);
+})()`;
+
+/* ---------------- G16：器械身份分层（品牌 / 系列 / 名称） ----------------
+   部件表从契约派生：插片/自重 → machine；挂片 → machine+plates；杠铃 → bar+plates+support；
+   哑铃 → dumbbell(+bench 可选)。身份落在 record.identity，不写回动作行；
+   两台机器各存各的，换动作不串味。 */
+const G16 = `(function(){
+  var out={};
+  var d=day(), savedEx=d.exercises;
+  var bb={mv:'W1_A_GEARV_ID_BB',cat:'S.Squat',mode:'T1.Mod',load:100,reps:5,rpe:8,
+          gear:{kind:'barbell',barKg:20,collarOn:true,collarPairKg:5}};
+  var db={mv:'W1_A_GEARV_ID_DB',cat:'S.Squat',mode:'T1.Mod',load:24,reps:5,rpe:8,
+          gear:{kind:'dumbbell',sides:2,incrementKg:2.5}};
+  var st={mv:'W1_A_GEARV_ID_ST',cat:'S.Squat',mode:'T1.Mod',load:40,reps:5,rpe:8,
+          gear:{kind:'stack',stacks:1,variant:'cable',stackPins:[4]}};
+  var pl={mv:'W1_A_GEARV_ID_PL',cat:'S.Squat',mode:'T1.Mod',load:60,reps:5,rpe:8,
+          gear:{kind:'plate',posts:2,variant:'standard',baseKg:0}};
+  d.exercises=[bb,db,st,pl];
+  function ids(kind){ return gearIdentityParts(kind).map(function(p){ return p.id; }).join(','); }
+  out.parts={bb:ids('barbell'),db:ids('dumbbell'),st:ids('stack'),pl:ids('plate')};
+  /* 杠铃三段各自品牌/系列/名称，走身份面板保存 */
+  openEditor(0); openIdentitySheet();
+  identityDraftSet('bar','brand','Eleiko');
+  identityDraftSet('bar','series','Powerlifting');
+  identityDraftSet('bar','name','Öppen 20kg');
+  identityDraftSet('plates','brand','Rogue');
+  identityDraftSet('plates','series','Calibrated');
+  identityDraftSet('plates','name','训练片');
+  identityDraftSet('support','brand','SBD');
+  identityDraftSet('support','name','比赛架');
+  identityDraftSet('support','type','combo');
+  identitySave();
+  var rb=gearRecordOf(bb);
+  out.bbSaved=JSON.stringify(rb.identity);
+  out.bbSum=gearIdentitySummary(bb).text;
+  out.bbInGear=!!(bb.gear&&bb.gear.identity);
+  /* 哑铃只写一段；不填凳就不留 bench 残条目 */
+  openEditor(1); openIdentitySheet();
+  identityDraftSet('dumbbell','brand','Bowflex');
+  identityDraftSet('dumbbell','name','552');
+  identitySave();
+  var rd=gearRecordOf(db);
+  out.dbSaved=JSON.stringify(rd.identity);
+  out.dbSum=gearIdentitySummary(db).text;
+  out.dbBench=!!(rd.identity&&rd.identity.bench);
+  /* 插片机器登记后：只有它自己的摘要变，杠铃仍只有自己的三段 */
+  openEditor(2); openIdentitySheet();
+  identityDraftSet('machine','brand','Life Fitness');
+  identityDraftSet('machine','name','Cable Column');
+  identitySave();
+  var rs=gearRecordOf(st);
+  out.stRecord=JSON.stringify(rs.identity);
+  out.stSum=gearIdentitySummary(st).text;
+  out.bbAfter=gearIdentitySummary(bb).text;
+  closeAllSheets();
   d.exercises=savedEx;
   window.__gearv.restore();
   return JSON.stringify(out);
@@ -661,7 +937,7 @@ async function main() {
     T('G1.5', '挂片 101kg 且最小片 1.25：每位余 0.5kg、exact=false、有警告',
       g1.plRem.recipe.remainder === 0.5 && g1.plRem.exact === false && g1.plRem.warn.length > 0,
       'rem ' + g1.plRem.recipe.remainder + ' / warn ' + JSON.stringify(g1.plRem.warn));
-    T('G1.6', '插片双栈 base20+pin8×2.5 / base20+pin4×5：实配 80kg、步长 gcd=2.5',
+    T('G1.6', '插片双栈按档位表：A 栈第 8 档 40kg + B 栈第 4 档 40kg = 实配 80kg、步长 gcd=2.5',
       g1.st.achieved === 80 && g1.st.recipe.count === 2 && g1.st.step === 2.5,
       'achieved ' + g1.st.achieved + ' / step ' + g1.st.step + ' / ' + JSON.stringify(g1.st.recipe.stacks));
     T('G1.7', '插片目标 85 与插销实际 80 不符：警告里带实际值',
@@ -704,6 +980,15 @@ async function main() {
     T('G1.16', '库存清空时步长回落 no_stock_fallback（' + g1.fallback + '），不是 0 也不是凭空造片',
       g1.steps.bbEmpty === g1.fallback && g1.steps.bbEmpty > 0,
       'bbEmpty ' + g1.steps.bbEmpty + ' / fallback ' + g1.fallback);
+    T('G1.17', '插片未登记档位表：exact=false、警告点名「未登记配重档位表」、实配仍等于输入（不假装等差）',
+      g1.stNo.exact === false && g1.stNo.warn.length > 0 &&
+      /未登记配重档位表/.test(g1.stNo.warn.join(' ')) && g1.stNo.achieved === 80,
+      'exact ' + g1.stNo.exact + ' / achieved ' + g1.stNo.achieved + ' / ' + JSON.stringify(g1.stNo.warn));
+    T('G1.18', '非等差档位表（前段 2.5、后段 3.5）逐档参与求解：32kg 命中、步长取最小差 2.5',
+      g1.stMix.exact === true && g1.stMix.achieved === 32 && g1.stMix.step === 2.5 &&
+      g1.stMix.recipe.stacks[0].levels.join(',') === '20,22.5,25,28.5,32,35.5,39',
+      'achieved ' + g1.stMix.achieved + ' / step ' + g1.stMix.step + ' / levels ' +
+      g1.stMix.recipe.stacks[0].levels.join(','));
 
     /* ---------------- G2 ---------------- */
     SECT.s = 'G2';
@@ -752,7 +1037,7 @@ async function main() {
       JSON.stringify(g3.edBtns) === JSON.stringify([
         '−' + g3.edStep[0], '−' + g3.edStep[1], '+' + g3.edStep[1], '+' + g3.edStep[0]]),
       JSON.stringify(g3.edBtns) + ' / step ' + g3.edStep.join(','));
-    T('G3.6', 'setGearBarKg(15)：动作级与 gearDefaults 都变 15，场地默认 bar_kg 一字不动',
+    T('G3.6', 'setGearBarKg(15)：动作行与器械资料 params 都变 15，场地默认 bar_kg 一字不动',
       g3.bar15.eBar === 15 && g3.bar15.def === 15 &&
       g3.bar15.venueAfter === g3.bar15.venueBefore,
       JSON.stringify(g3.bar15));
@@ -828,14 +1113,34 @@ async function main() {
     T('G6.4', '处方 5×5：单段恒重组、非 AMRAP、sets 5',
       g6.st.fromRx && g6.st.n === 1 && !g6.st.amrap && g6.st.sets === 5 && g6.st.tag === 'STRAIGHT SETS',
       JSON.stringify(g6.st));
-    T('G6.5', '认不出的原文：回落且不谎称权威（fromRx=false），rx 换成协议表口径而非保留乱码',
-      !g6.bad.fromRx && g6.bad.rx !== '乱七八糟',
+    T('G6.5', '非空坏原文：显式 invalid、原文照留、不换处方（不再静默回落 proto）',
+      !g6.bad.fromRx && g6.bad.invalid === true && g6.bad.rx === '乱七八糟',
       JSON.stringify(g6.bad));
     T('G6.6', '空 rx：回落单组猜测、fromRx=false、绝不凭空造多段',
       !g6.empty.fromRx && g6.empty.n === 1,
       JSON.stringify(g6.empty));
+    T('G6.9', '计划写法 1×3+2×3−5%（无空格 +、全角减号）：两段 Σsets=3、退阶 5%',
+      g6.ds.fromRx && g6.ds.invalid === false && g6.ds.n === 2 && g6.ds.sets === 3
+      && g6.ds.tag === 'TOP+BACKOFF' && Math.abs(g6.ds.backoff - 0.05) < 1e-6,
+      JSON.stringify(g6.ds));
+    T('G6.10', '计划写法 2×5 @60%：绝对强度按 0.60 计、单段 sets 2 reps 5',
+      g6.ab.fromRx && g6.ab.n === 1 && g6.ab.sets === 2 && g6.ab.reps === 5
+      && g6.ab.g[0] === '2x5@0.6', JSON.stringify(g6.ab));
+    T('G6.11', '计划写法 3×2 / 2×15：单段组数与次数按原文（高次数不擅自判 AMRAP）',
+      g6.b3.fromRx && g6.b3.sets === 3 && g6.b3.reps === 2 && !g6.b3.amrap
+      && g6.r15.fromRx && g6.r15.sets === 2 && g6.r15.reps === 15 && !g6.r15.amrap,
+      JSON.stringify(g6.b3) + ' / ' + JSON.stringify(g6.r15));
+    T('G6.12', '计划写法 1×1 · 第 1 把：注释只解释用途、不改组次，原文照留',
+      g6.cm.fromRx && g6.cm.sets === 1 && g6.cm.reps === 1 && g6.cm.rx === '1×1 · 第 1 把',
+      JSON.stringify(g6.cm));
+    T('G6.13', '中文段注写法 1×3 顶组 + 2×3 减 5% 补组：两段 Σsets=3、退阶 5%',
+      g6.zh.fromRx && g6.zh.n === 2 && g6.zh.sets === 3 && g6.zh.tag === 'TOP+BACKOFF'
+      && Math.abs(g6.zh.backoff - 0.05) < 1e-6, JSON.stringify(g6.zh));
+    T('G6.14', 'sets 列驱动组数：计划 sets=3 压过 rx 拆出的 5，缺省时 setsOf 回 proto',
+      g6.own.fromRx && g6.own.sets === 3 && g6.own.reps === 5
+      && g6.so7 === 7 && g6.so0 > 0, JSON.stringify(g6.own) + ' so7=' + g6.so7 + ' so0=' + g6.so0);
     T('G6.7', '运行时真有一条种子 Top.Set 行走权威路径：rx 解析成功且 prescriptionOf.rx == 原 rx（旧污染已消除）',
-      !!g6.live && g6.live.p.fromRx && g6.live.p.n > 1
+      !!g6.live && g6.live.p.fromRx && g6.live.p.invalid === false
       && g6.live.p.rx === String(g6.live.rx).replace(/\s+/g, ' ').trim(),
       g6.live ? JSON.stringify(g6.live) : '没找到可解析的 Top.* 种子行');
     T('G6.8', 'BackOff 取整性质：140×0.9=126 不在 2.5 步长格上 → 吸附到最近可达 125，且 |target−achieved|=1 ≤ step',
@@ -848,12 +1153,15 @@ async function main() {
     T('G7.1', '自重卡：主数字=净负荷(87.5±外载) 非原值、标签「净负荷/NET LOAD」、plus 显加重、assist 显辅助；配重条只出人形图形、零文本',
       /^112\.5/.test(g7.r0.b) && /净负荷|NET LOAD/.test(g7.r0.lab) && /加重|ADDED/.test(g7.r0.b)
       && /^57\.5/.test(g7.r1.b) && /辅助|ASSIST/.test(g7.r1.b)
-      && g7.r0.strip === '' && /bw-fig is-plus/.test(g7.r0.html)
+      && g7.r0.strip === '' && /class="gz-svg gz-bw"/.test(g7.r0.html)
+      && /data-gz="bw" data-mode="plus"/.test(g7.r0.html)
       && g7.eff[0] === 112.5 && g7.eff[1] === 57.5,
       JSON.stringify(g7));
-    T('G7.2', '哑铃卡：主数字=单边 24、灰后缀 ×2=48、标签「载荷/LOAD」不顶替；配重条只出哑铃图形（含双边双线）、零文本',
+    T('G7.2', '哑铃卡：主数字=单边 24、灰后缀 ×2=48、标签「载荷/LOAD」不顶替；配重条只出哑铃图形（双边两组、每组各一枚头）、零文本',
       /^24/.test(g7.r2.b) && /×2=48/.test(g7.r2.b) && /载荷|LOAD/.test(g7.r2.lab)
-      && g7.r2.strip === '' && /geg-dhead/.test(g7.r2.html) && /geg-d2/.test(g7.r2.html)
+      && g7.r2.strip === '' && /data-gz="dumb"/.test(g7.r2.html)
+      && (g7.r2.html.match(/data-side="/g) || []).length === 2
+      && (g7.r2.html.match(/gz-dhead/g) || []).length === 4
       && g7.eff[2] === 48,
       JSON.stringify(g7));
 
@@ -864,9 +1172,9 @@ async function main() {
       g8.cfgShown !== 'none' && g8.postOpts === g8.expPostOpts && g8.expPostOpts === 5 &&
       g8.cfgHiddenBar === 'none',
       'cfgShown ' + g8.cfgShown + ' / opts ' + g8.postOpts + ' vs ' + g8.expPostOpts + ' / bar ' + g8.cfgHiddenBar);
-    T('G8.2', '均衡装载网格：gp-post 块数 == posts(2)、每位同配方 ⇒ 片块数 == 每位片数 × 位数(4)',
-      g8.postBlocks === 2 && g8.chipBlocks === 4,
-      'postBlocks ' + g8.postBlocks + ' / chipBlocks ' + g8.chipBlocks);
+    T('G8.2', '均衡装载网格：挂片轴数 == posts(2)、每位同配方 ⇒ 圆片数 == 每位片数 × 轴数(4)',
+      g8.postBlocks === 2 && g8.discBlocks === 4,
+      'postBlocks ' + g8.postBlocks + ' / discBlocks ' + g8.discBlocks);
     T('G8.3', '挂片不套杠铃套管轴：plate 视图 #edPlateBar 有 no-sleeve 且无 .pv-sleeve；杠铃对照仍有 .pv-sleeve',
       g8.sleeveBar === 0 && g8.noSleeveBar === true && g8.sleeveOnBar >= 1,
       'plate sleeve ' + g8.sleeveBar + ' noSleeve ' + g8.noSleeveBar + ' / barbell sleeve ' + g8.sleeveOnBar);
@@ -877,13 +1185,14 @@ async function main() {
       g8.variant1 === 'smith' && String(g8.baseInShown) === '20' &&
       g8.base === 25 && g8.baseAfterBad === 25,
       'variant ' + g8.variant1 + ' / baseInShown ' + g8.baseInShown + ' / base ' + g8.base + ' / afterBad ' + g8.baseAfterBad);
-    T('G8.6', '首页 gear-strip 前四形态：挂片卡画 .pb 片叠且挂片柱数 == posts(2/4)、史密斯卡带横梁；两条内零文本（位数不再写成 ×N）',
-      g8.plHtml.indexOf('class="pb"') >= 0 && g8.plPosts === 2 && g8.plStripText === '' &&
-      g8.smHtml.indexOf('class="pb"') >= 0 && g8.smPosts === 4 && g8.smStripText === '' &&
-      g8.smHtml.indexOf('class="geg-beam"') >= 0 &&
-      /史密斯|SMITH/.test(g8.smStrip) && /18\.75/.test(g8.smStrip) && /每位|PER POST/.test(g8.smStrip),
-      'pl pb ' + (g8.plHtml.indexOf('class="pb"') >= 0) + ' posts ' + g8.plPosts +
-      ' / sm pb ' + (g8.smHtml.indexOf('class="pb"') >= 0) + ' posts ' + g8.smPosts +
+    T('G8.6', '首页 gear-strip 前四形态：挂片卡画挂片图形（轴数 == posts(2/4)）且不借杠铃片，史密斯卡摘要带品牌与基数；两条内零文本（位数不再写成 ×N）',
+      g8.plHtml.indexOf('data-gz="plate"') >= 0 && g8.plHtml.indexOf('class="pb"') < 0 &&
+      g8.plPosts === 2 && g8.plStripText === '' &&
+      g8.smHtml.indexOf('data-gz="plate"') >= 0 && g8.smHtml.indexOf('class="pb"') < 0 &&
+      g8.smPosts === 4 && g8.smStripText === '' &&
+      /史密斯|SMITH/.test(g8.smStrip) && /18\.75/.test(g8.smStrip) && /每侧|PER SIDE/.test(g8.smStrip),
+      'pl plate ' + (g8.plHtml.indexOf('data-gz="plate"') >= 0) + ' posts ' + g8.plPosts +
+      ' / sm plate ' + (g8.smHtml.indexOf('data-gz="plate"') >= 0) + ' posts ' + g8.smPosts +
       ' / strip ' + JSON.stringify([g8.plStripText, g8.smStripText]) + ' / ' + g8.smStrip);
 
     /* ---------------- G9：插片双栈编辑器 + 特殊收口 ---------------- */
@@ -895,15 +1204,21 @@ async function main() {
       g9.stackHiddenInBar === 'none' && g9.spHiddenInBar === 'none',
       'cfg ' + g9.cfgShown + ' / opts ' + g9.stackOpts + ' vs ' + g9.expStackOpts +
       ' / cable ' + g9.cableChip + ' / bar ' + g9.stackHiddenInBar + ',' + g9.spHiddenInBar);
-    T('G9.2', '竖向配重堆：列数 == stacks(1)、点亮块数 == pin(8)、栈不套杠铃套管轴（无 .pv-sleeve 且 no-sleeve）',
-      g9.cols === 1 && g9.onBlocks === 8 && g9.sleeveStack === 0 && g9.noSleeveStack === true,
-      'cols ' + g9.cols + ' / on ' + g9.onBlocks + ' / sleeve ' + g9.sleeveStack + ' noSleeve ' + g9.noSleeveStack);
-    T('G9.3', 'setGearStacks(2)：stacks==2、网格同步长到 2 列且 gearOf 侧把 stackCfg 归一到 2 条（第二栈可编辑）；非法 3（不在枚举）被拒、停回 2',
-      g9.stacks2 === 2 && g9.colsAfter2 === 2 && g9.cfgLen2 === 2 && g9.stacksAfterBad === 2,
-      'stacks2 ' + g9.stacks2 + ' / cols ' + g9.colsAfter2 + ' / cfgLen ' + g9.cfgLen2 + ' / afterBad ' + g9.stacksAfterBad);
-    T('G9.4', 'setGearStackField：(0,pin,10) 生效；(0,pin,999) 被拒（pin 上限 60）停 10；(1,incKg,7) 写进第二栈；load 一字不动',
-      g9.pin0 === 10 && g9.pinAfterBad === 10 && g9.cfg2inc === 7 && g9.loadStackUntouched === 80,
-      'pin0 ' + g9.pin0 + ' / afterBad ' + g9.pinAfterBad + ' / cfg2inc ' + g9.cfg2inc + ' / load ' + g9.loadStackUntouched);
+    T('G9.2', '竖向配重堆：列数 == stacks(1)、9 档全画（≤14 不截窗、销位 8 落在底档）且全在档上、有销位标记、栈不套杠铃套管轴',
+      g9.cols === 1 && g9.winBlocks === 9 && g9.onBlocks === 9 && g9.hasPin === true &&
+      g9.sleeveStack === 0 && g9.noSleeveStack === true,
+      'cols ' + g9.cols + ' / win ' + g9.winBlocks + ' / on ' + g9.onBlocks + ' / pin ' + g9.hasPin +
+      ' / sleeve ' + g9.sleeveStack + ' noSleeve ' + g9.noSleeveStack);
+    T('G9.3', 'setGearStacks(2)：stacks==2、配置长出两行且第二栈明说「未登记档位表」不画假刻度；非法 3（不在枚举）被拒、停回当前 1 栈',
+      g9.stacks2 === 2 && g9.cfgRows === 2 && g9.noTableTxt === true && g9.colsAfter2 === 0 &&
+      g9.stacksAfterBad === 1,
+      'stacks2 ' + g9.stacks2 + ' / rows ' + g9.cfgRows + ' / noTable ' + g9.noTableTxt +
+      ' / cols ' + g9.colsAfter2 + ' / afterBad ' + g9.stacksAfterBad);
+    T('G9.4', 'setGearStackField 只认销位：pin 10 生效、999 被拒（上限从契约读）、incKg/baseKg/stackCfg 一个都写不进；load 一字不动',
+      g9.pin0 === 10 && g9.pinAfterBad === 10 && g9.oldKeys === '' && g9.cfg2inc === true &&
+      g9.loadStackUntouched === 80,
+      'pin0 ' + g9.pin0 + ' / afterBad ' + g9.pinAfterBad + ' / oldKeys「' + g9.oldKeys +
+      '」/ noInc ' + g9.cfg2inc + ' / load ' + g9.loadStackUntouched);
     T('G9.5', '龙门架开关：toggle→variant cable 且 chip 亮、再 toggle 回 standard',
       g9.variantC === 'cable' && g9.chipOn === true && g9.variantBack === 'standard',
       'var ' + g9.variantC + '→' + g9.variantBack + ' / chipOn ' + g9.chipOn);
@@ -912,14 +1227,22 @@ async function main() {
       g9.labelAfterBad === '壶铃' && g9.spCellsEdit === 3,
       'strip ' + g9.strip1 + ' / unit ' + g9.unitAfterBad + ' / count ' + g9.countAfterBad +
       ' / label ' + g9.labelAfterBad + ' / cells ' + g9.spCellsEdit);
-    T('G9.7', '形态收口：单栈卡 strip 只出配重堆图形（梯框+销位、零文本、不画 .pb）；特殊卡主数字 48/手填 46、strip 只出单元方块零文本；特殊编辑器关套管轴',
-      g9.stStrip === '' && g9.stStripHtml.indexOf('class="geg-ladder"') >= 0 &&
+    T('G9.7', '形态收口：单栈卡 strip 只出配重堆图形（data-gz=stack + 销位、零文本、不画 .pb）；特殊卡主数字 48/手填 46、strip 只出单元方块零文本；特殊编辑器关套管轴',
+      g9.stStrip === '' && g9.stStripHtml.indexOf('data-gz="stack"') >= 0 &&
       g9.stHtml.indexOf('class="pb"') < 0 &&
-      /^48/.test(g9.sp0B) && g9.sp0Strip === '' && g9.sp0StripHtml.indexOf('class="geg-unit"') >= 0 &&
+      /^48/.test(g9.sp0B) && g9.sp0Strip === '' && g9.sp0StripHtml.indexOf('class="gz-unit"') >= 0 &&
       /^46/.test(g9.sp1B) && g9.sp1Strip === '' &&
       /手填|MANUAL/.test(g9.manStrip) && g9.manEff === 46 && g9.spNoSleeve === true && g9.spSleeve === 0,
       'st ' + JSON.stringify(g9.stStrip) + ' / sp0 ' + g9.sp0B + ' ' + JSON.stringify(g9.sp0Strip) +
       ' / sp1 ' + g9.sp1B + ' / man ' + g9.manStrip + ' / sleeve ' + g9.spSleeve);
+    T('G9.8', '档位表逐机编辑（走面板保存）：7 档非等差 20/22.5/25/28.5/32/35.5/39 原样入库，步长取最小差 2.5，销位写回 4',
+      g9.savedLevels === '20,22.5,25,28.5,32,35.5,39' && g9.savedCount === 7 &&
+      g9.savedStep === 2.5 && g9.pinAfterSave === 4,
+      'levels ' + g9.savedLevels + ' / n ' + g9.savedCount + ' / step ' + g9.savedStep +
+      ' / pin ' + g9.pinAfterSave);
+    T('G9.9', '非等差 ± 走相邻可达档：28.5 → 32（+3.5 档），不按最小差 2.5 硬套',
+      g9.next.load === 32 && g9.next.pins === '4',
+      'next ' + JSON.stringify(g9.next));
 
     /* ---------------- G10：日程→场地 + 推断修正 ---------------- */
     SECT.s = 'G10';
@@ -930,9 +1253,9 @@ async function main() {
     T('G10.2', '回落腿全指回激活场地（legacy ⇒ 0.5），不崩 0：plan 无 def / local 无 day / 指到不存在的场地',
       g10.stepPlanNone === 0.5 && g10.stepLocalNoDay === 0.5 && g10.stepUnknownVenue === 0.5,
       'plan∅ ' + g10.stepPlanNone + ' / local∅ ' + g10.stepLocalNoDay + ' / ∃? ' + g10.stepUnknownVenue);
-    T('G10.3', 'setGearGuess 写 gearDefaults 且 gearOf 认得（单轨，不开第二份状态）；非法 kind 拒、不留残条目',
+    T('G10.3', 'setGearGuess 写器械资料 record.kind 且 gearOf 认得（单轨，不开第二份状态）；非法 kind 拒、不留残条目',
       g10.defKind === 'dumbbell' && g10.guessKind === 'dumbbell' && g10.badRejected === true,
-      'def ' + g10.defKind + ' / gearOf ' + g10.guessKind + ' / bad ' + g10.badRejected);
+      'record ' + g10.defKind + ' / gearOf ' + g10.guessKind + ' / bad ' + g10.badRejected);
     T('G10.4', '设置页推断清单：行数 ≥1、每行 chip 数 == kinds(6)；setGearGuessAt(0,stack) 生效且该行来源翻「已修正」',
       g10.items >= 1 && g10.chips0 === g10.kinds && g10.kinds === 6 &&
       g10.stackApplied === true && g10.srcFixed === true,
@@ -945,23 +1268,60 @@ async function main() {
     T('G11.1', '中文动作名定向：插片→stack、挂片→plate、坐姿器械→stack、杠铃→barbell（不再一兜 barbell）',
       g11.h1 === 'stack' && g11.h2 === 'plate' && g11.h3 === 'stack' && g11.h4 === 'barbell',
       'h1 ' + g11.h1 + ' / h2 ' + g11.h2 + ' / h3 ' + g11.h3 + ' / h4 ' + g11.h4);
-    T('G11.2', '首页形状语言：strip 带 data-k，六类各出专属图形（杠铃片/挂片柱+史密斯横梁/插片梯+滑轮/哑铃头/自重人形/特殊单元）',
+    T('G11.2', '首页形状语言：strip 带 data-k，六类各出专属图形（杠铃片/挂片图形 2、4 轴/插片块列+滑轮/哑铃头/自重人形/特殊单元）',
       g11.kinds === 'barbell,plate,plate,stack,dumbbell,bw,special' &&
-      g11.bb.indexOf('class="pb"') >= 0 && g11.pl.indexOf('class="geg-post"') >= 0 &&
-      g11.sm.indexOf('class="geg-beam"') >= 0 && g11.st.indexOf('class="geg-ladder"') >= 0 &&
-      g11.st.indexOf('class="geg-pulley"') >= 0 && g11.db.indexOf('class="geg-dhead"') >= 0 &&
-      g11.bw.indexOf('class="bw-fig') >= 0 && g11.sp.indexOf('class="geg-unit"') >= 0,
-      'kinds ' + g11.kinds);
+      g11.bb.indexOf('class="pb"') >= 0 &&
+      g11.pl.indexOf('data-gz="plate"') >= 0 && g11.plHorns === 2 &&
+      g11.sm.indexOf('data-gz="plate"') >= 0 && g11.smHorns === 4 &&
+      g11.st.indexOf('data-gz="stack"') >= 0 && g11.st.indexOf('class="gz-pulley"') >= 0 &&
+      g11.db.indexOf('data-gz="dumb"') >= 0 && g11.db.indexOf('class="gz-dhead"') >= 0 &&
+      g11.bw.indexOf('data-gz="bw"') >= 0 && g11.bw.indexOf('gz-bw') >= 0 &&
+      g11.sp.indexOf('class="gz-unit"') >= 0,
+      'kinds ' + g11.kinds + ' / horns ' + g11.plHorns + ',' + g11.smHorns
+      + ' / bbpb=' + (g11.bb.indexOf('class="pb"') >= 0)
+      + ' / pl=' + (g11.pl.indexOf('data-gz="plate"') >= 0)
+      + ' / st=' + (g11.st.indexOf('data-gz="stack"') >= 0)
+      + ' / stpill=' + (/gz-pulley/.test(g11.st || ''))
+      + ' / db=' + (g11.db.indexOf('data-gz="dumb"') >= 0) + '/' + (g11.db.indexOf('class="gz-dhead"') >= 0)
+      + ' / bw=' + (g11.bw.indexOf('data-gz="bw"') >= 0) + '/' + (g11.bw.indexOf('class="gz-bw"') >= 0)
+      + ' / sp=' + (g11.sp.indexOf('class="gz-unit"') >= 0));
 
-    /* ---------------- G12：四档窄屏，配重条零文本、图形不被裁、卡片不顶破 ---------------- */
-    for (const w of [320, 361, 390, 412]) {
+    /* ---------------- G12：四档窄屏，配重条零文本、图形不被裁、卡片不顶破 ----------------
+       先把首页动作换成六类装备的夹具（G11 逐类只验形状、验完即还原），这样四档宽度
+       量到的是挂片/插片/哑铃/自重/特殊全部五类非杠铃条，而不是当天恰好排到的两三条。 */
+    const g12f = JSON.parse(await evalIn(ws, id, `(function(){
+      var d=day(); window.__gearv.save();
+      var rec=gearRecordAt(resolveVenueId({mv:'W1_A_G12ST'}),'W1_A_G12ST',true);
+      rec.kind='stack';
+      rec.stack={v:1,ladders:[{v:1,levels:[0,5,10,15,20,25,30,35,40,45,50,55],
+                               updatedAt:'2026-01-01T00:00:00.000Z'}]};
+      var mk=function(i,g,load){return {mv:'W1_A_G12'+i,cat:'S.Squat',mode:'T1.Mod',load:load,reps:5,rpe:null,gear:g};};
+      d.exercises=[
+        mk('BB',{kind:'barbell',barKg:20,collarOn:true,collarPairKg:5},100),
+        mk('PL',{kind:'plate',posts:2,variant:'standard',baseKg:0},60),
+        mk('SM',{kind:'plate',posts:4,variant:'smith',baseKg:20},80),
+        mk('ST',{kind:'stack',stacks:1,variant:'cable',stackPins:[6]},60),
+        mk('DB',{kind:'dumbbell',sides:2,incrementKg:2.5},48),
+        mk('BW',{kind:'bw',lever:1},0),
+        mk('SP',{kind:'special',label:'壶铃',unitKg:16,count:2},0)
+      ];
+      renderExercises();
+      return JSON.stringify({kinds:Array.prototype.map.call(
+        document.querySelectorAll('#exList article.ex .plate-strip'),
+        function(s){return s.getAttribute('data-k');})});
+    })()`));
+    T('G12.0', '首页六类夹具就位（杠铃 1 + 非杠铃 5：挂片×2/插片/哑铃/自重/特殊）',
+      g12f.kinds.length === 7 &&
+      g12f.kinds.filter(function(k){return k !== 'barbell';}).length === 6,
+      g12f.kinds.join(','));
+    for (const w of [320, 360, 390, 412]) {
       SECT.s = 'G12 ' + w;
       await send(ws, id.v, 'Emulation.setDeviceMetricsOverride',
         { width: w, height: 892, deviceScaleFactor: 1, mobile: true });
       await new Promise(r => setTimeout(r, 160));
       const gw = JSON.parse(await evalIn(ws, id, `(function(){
         var arts=document.querySelectorAll('#exList article.ex'), n=0, txt=0, ov=0, minW=9999, cardOvf=0, minK='';
-        var vw=window.innerWidth;
+        var vw=window.innerWidth, cMax=0, cInfo='', cNon=0;
         for(var i=0;i<arts.length;i++){
           var a=arts[i], st=a.querySelector('.plate-strip');
           if(st){
@@ -970,18 +1330,37 @@ async function main() {
             var d=st.scrollWidth-st.clientWidth; if(d>ov) ov=d;
             var sw=st.getBoundingClientRect().width;
             if(sw<minW){ minW=sw; minK=st.getAttribute('data-k')||''; }
+            /* 非杠铃图形必须在条内水平居中：左右留白差 = |第一块到左边 / 右边到最后一块|。
+               挂片/插片/哑铃/自重是内联 .gz-svg、特殊是 .gz-special 单元、杠铃是 .pb 片块，三种都要算进来；
+               杠铃保持原样（横轴从 4px 起画），空杆条没有内容元素，两者都不进这条判据。 */
+            var gegs=st.querySelectorAll('.gz-svg,.gz-special,.pb');
+            if(st.getAttribute('data-k')!=='barbell' && !st.classList.contains('empty') && gegs.length){
+              cNon++;
+              var sr=st.getBoundingClientRect();
+              var fr=gegs[0].getBoundingClientRect(), lr=gegs[gegs.length-1].getBoundingClientRect();
+              var lg=fr.left-sr.left, rg=sr.right-lr.right, df=Math.abs(lg-rg);
+              if(df>cMax){ cMax=df; cInfo=st.getAttribute('data-k')+' '+lg.toFixed(1)+'/'+rg.toFixed(1); }
+            }
           }
           var r=a.getBoundingClientRect();
           if(r.right>vw+0.5) cardOvf=Math.max(cardOvf, Math.round(r.right-vw));
         }
         return JSON.stringify({n:n,txt:txt,ov:Math.round(ov),minW:Math.round(minW),minK:minK,cardOvf:cardOvf,
+          cNon:cNon,cMax:+cMax.toFixed(2),cInfo:cInfo,
           docOvf:Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)-vw});
       })()`));
       T('G12 ' + w + 'px',
         '配重条四档收口：' + gw.n + ' 条全部零文本、内裁 ' + gw.ov + 'px、最窄 ' + gw.minW +
         'px、卡片越界 ' + gw.cardOvf + 'px、整页横滚 ' + gw.docOvf + 'px',
         gw.n >= 6 && gw.txt === 0 && gw.ov <= 1 && gw.cardOvf <= 1 && gw.docOvf <= 1, JSON.stringify(gw));
+      T('G12c ' + w + 'px',
+        '非杠铃配重图形条内居中：' + gw.cNon + ' 条，最大左右留白差 ' + gw.cMax + 'px（' + gw.cInfo + '）',
+        gw.cNon >= 6 && gw.cMax <= 0.6, JSON.stringify({cNon:gw.cNon,cMax:gw.cMax,cInfo:gw.cInfo}));
     }
+    /* 夹具用完还原：后面的 G13 与 G0.2 副作用哈希必须回到真实日程（含档位表记录）。 */
+    await evalIn(ws, id, `(function(){
+      window.__gearv.restore(); renderExercises(); return 'ok';
+    })()`);
     await send(ws, id.v, 'Emulation.setDeviceMetricsOverride',
       { width: 412, height: 892, deviceScaleFactor: 1, mobile: true });
     await new Promise(r => setTimeout(r, 160));
@@ -990,11 +1369,81 @@ async function main() {
     SECT.s = 'G13';
     const g13 = JSON.parse(await evalIn(ws, id, `(function(){
       var h=gearGlyph({kind:'stack',recipe:{stacks:[{pin:0,kg:0}],variant:'standard'}});
-      return JSON.stringify({h:h,ladder:h.indexOf('class="geg-ladder"')>=0,
-        pin:h.indexOf('class="geg-pin"')>=0,zero:h.indexOf('height:0%')>=0,len:h.length});
+      return JSON.stringify({h:h,stack:h.indexOf('data-gz="stack"')>=0,
+        pin:h.indexOf('data-gz="pin"')>=0,dpin:/data-pin="0"/.test(h),
+        eng:(h.match(/data-engaged="1"/g)||[]).length,
+        blocks:(h.match(/data-idx="/g)||[]).length,len:h.length});
     })()`));
-    T('G13', '插片 pin=0：条内仍画出空配重堆（梯框 + 销位在底、填充 0%），不是空白条',
-      g13.ladder && g13.pin && g13.zero && g13.len > 40, JSON.stringify(g13));
+    T('G13', '插片 pin=0：条内仍画出配重堆与销位（0→1 档实心），不是空白条',
+      g13.stack && g13.pin && g13.dpin && g13.eng === 1 && g13.blocks === 1 && g13.len > 40,
+      JSON.stringify(g13));
+
+    /* ---------------- G14：逐机档位表（非等差）+ 跨动作隔离 ---------------- */
+    SECT.s = 'G14';
+    const g14 = JSON.parse(await evalIn(ws, id, G14));
+    T('G14.1', '每台插片机各存一把绝对 kg 档位表：A 前 2.5 后 3.5（非等差）7 档、B 5 档；步长各取自己的最小差',
+      g14.a.levels === '20,22.5,25,28.5,32,35.5,39' && g14.a.step === 2.5 &&
+      g14.b.levels === '10,15,20,25,30' && g14.b.step === 5,
+      'A ' + g14.a.levels + '@' + g14.a.step + ' / B ' + g14.b.levels + '@' + g14.b.step);
+    T('G14.2', '各自按自己的表求最近档：A 目标 25 命中第 3 档、B 目标 20 命中第 3 档，均 exact',
+      g14.a.ach === 25 && g14.a.exact === true && g14.a.pin === 2 &&
+      g14.b.ach === 20 && g14.b.exact === true && g14.b.pin === 2,
+      'A ' + g14.a.ach + '/' + g14.a.pin + ' / B ' + g14.b.ach + '/' + g14.b.pin);
+    T('G14.3', '非等差 ± 按相邻可达档走：A 28.5→32（+3.5）、B 10→15（+5），不是最小差硬套',
+      g14.nextA && g14.nextA.load === 32 && g14.nextA.pins.join(',') === '4' &&
+      g14.nextB && g14.nextB.load === 15 && g14.nextB.pins.join(',') === '1',
+      'A ' + JSON.stringify(g14.nextA) + ' / B ' + JSON.stringify(g14.nextB));
+    T('G14.4', '跨动作隔离：只在 A 点销位 → A 实配 32；B 无 stackPins、实配仍 20；两条 record 各是各的表',
+      g14.aPin.load === 32 && g14.aPin.pins === '4' && g14.aPin.bPins === 'none' &&
+      g14.aPin.bAch === 20 && g14.recA !== g14.recB,
+      JSON.stringify(g14.aPin) + ' / recA ' + g14.recA + ' / recB ' + g14.recB);
+    T('G14.5', '坏表（降序）不改用户原文：stackLadderOf=false、solver exact=false + 警告、record 仍是 25,20,15',
+      g14.bad.ok === false && g14.bad.exact === false && g14.bad.warn.length > 0 &&
+      g14.bad.kept === '25,20,15',
+      JSON.stringify(g14.bad));
+
+    /* ---------------- G15：器械图形的新钩子（销位单调 / 零文字 / 挂片余量 / 尺寸 / 窗口） ---------------- */
+    SECT.s = 'G15';
+    const g15 = JSON.parse(await evalIn(ws, id, G15));
+    T('G15.1', '销位单调：9 档 ladder 上 pin 0..8 依次落销，卡上 data-pin 与实心块数严格递增 1..9',
+      g15.mono.length === 9 &&
+      g15.mono.every(function(x,i){ return x && x.pin === i && x.eng === i + 1; }),
+      JSON.stringify(g15.mono));
+    T('G15.2', '条内零文字：六类每个 .gz-svg 的 textContent 为空且无 <text>，特殊单元也零文字',
+      g15.tx.svg >= 4 && g15.tx.special === 1 &&
+      g15.tx.text === 0 && g15.tx.poly === 0 && g15.tx.sBad === 0,
+      JSON.stringify(g15.tx));
+    T('G15.3', '挂片空轴/余量：12kg 低于基数、101kg 粗库存余 0.5kg 都画出 ghost，卡片不写「无片」',
+      g15.ghostLow.ghost > 0 && g15.ghostCoarse.ghost > 0 &&
+      !/无片/.test(g15.ghostLow.txt) && !/无片/.test(g15.ghostCoarse.txt),
+      JSON.stringify([g15.ghostLow, g15.ghostCoarse]));
+    T('G15.4', '挂片尺寸分档：编辑器大图高 48px，首页 strip 小图高 26px（小图不用 40px）',
+      g15.bigH === '48px' && g15.smallH === '26px' && g15.smallH !== '40px',
+      'big ' + g15.bigH + ' / small ' + g15.smallH);
+    T('G15.5', '插片窗口：20 档、pin 15 → 只画 14 块（lo=6..19），销位在窗内且 engaged=pin−lo+1=10',
+      !!g15.win && g15.win.pin === 15 && g15.win.blocks === 14 &&
+      g15.win.min === 6 && g15.win.max === 19 && g15.win.eng === 10 && g15.win.hasPin === true,
+      JSON.stringify(g15.win));
+
+    /* ---------------- G16：器械身份分层 + 跨动作不串味 ---------------- */
+    SECT.s = 'G16';
+    const g16 = JSON.parse(await evalIn(ws, id, G16));
+    T('G16.1', '身份部件按契约派生、不手抄名单：杠铃 bar+plates+support、挂片 machine+plates、插片/自重 machine、哑铃 dumbbell+bench',
+      g16.parts.bb === 'bar,plates,support' && g16.parts.pl === 'machine,plates' &&
+      g16.parts.st === 'machine' && g16.parts.db === 'dumbbell,bench',
+      JSON.stringify(g16.parts));
+    T('G16.2', '杠铃三段各写品牌/系列/名称：identity 存在器械资料 record（不进动作行），support.type 保留，摘要三段都在',
+      /Eleiko/.test(g16.bbSaved) && /Rogue/.test(g16.bbSaved) && /SBD/.test(g16.bbSaved) &&
+      /"combo"/.test(g16.bbSaved) && g16.bbInGear === false &&
+      /Eleiko/.test(g16.bbSum) && /Rogue/.test(g16.bbSum) && /SBD/.test(g16.bbSum),
+      g16.bbSaved + ' / ' + g16.bbSum);
+    T('G16.3', '哑铃只写一段、凳可选：只填哑铃时 identity 里没有 bench 残条目，摘要只出一段',
+      /Bowflex/.test(g16.dbSaved) && g16.dbBench === false && /Bowflex/.test(g16.dbSum),
+      g16.dbSaved + ' / bench ' + g16.dbBench + ' / ' + g16.dbSum);
+    T('G16.4', '身份逐动作不串味：插片机登记 Life Fitness 后只有它自己的摘要变，杠铃摘要仍只有原三段',
+      /Life Fitness/.test(g16.stRecord) && /Life Fitness/.test(g16.stSum) &&
+      !/Life Fitness/.test(g16.bbAfter) && /Eleiko/.test(g16.bbAfter),
+      'st ' + g16.stSum + ' / bb ' + g16.bbAfter);
 
     /* ---------------- G0 出段 ---------------- */
     SECT.s = 'G0';
@@ -1009,8 +1458,8 @@ async function main() {
   }
 
   /* 断言总数闸门：少一条就是少一条，不能装作还是全绿。
-     69 = G0 2 + G1 16 + G2 4 + G3 12 + G4 3 + G5 3 + G6 8 + G7 2 + G8 6 + G9 7 + G10 4 + G11 2 + G12 4 + G13 1. */
-  const EXP_N = 74;
+     103 = G0 2 + G1 18 + G2 4 + G3 12 + G4 3 + G5 3 + G6 14 + G7 2 + G8 6 + G9 9 + G10 4 + G11 2 + G12 9 + G13 1 + G14 5 + G15 5 + G16 4. */
+  const EXP_N = 103;
   if (PASS + FAIL !== EXP_N) {
     LINES.push('FAIL  Z1 断言总数漂移（实到 ' + (PASS + FAIL) + '，应 ' + EXP_N + '）');
     FAIL++;

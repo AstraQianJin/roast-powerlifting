@@ -9,7 +9,7 @@
 | | `release/` | 发版记录（`RELEASE_NOTES.md`）；APK 二进制只上传 GitHub Releases | [`release/RELEASE_NOTES.md`](release/RELEASE_NOTES.md) |
 | | `archive/desktop/` | 已归档的 PC 端项目（Excel ⇄ Web HUD），**不入仓、不进依赖图、不参与门禁** | 归档目录内自带 `README.md` |
 
-**现行版本：`v0.61`（versionCode 56）** —— 预览版，第 1+2 块先行：首页删除「今天也要练」模块（DOM/CSS/文案/存储键/断言一并清掉）；设置由抽屉弹层改为独立页面，拥有自己的返回栈（子项返回回设置页，不再弹回首页），并按消费者视角重排为七组卡片，去掉工程模式话术；顶栏快捷入口返回来源页；自动调整改为「先预览、点确认才应用」；品牌串统一 `ExDark Pro`。第 3/4/5 块（三计算器与共享段位徽章、器械身份、显式档位表）尚未进本预览；正式内测第一版留 `0.70` / code 57。逐版变更看 `CHANGELOG.md`，门禁项数以 `gate.py` 实际输出为准（本文不抄数字）。
+**现行版本：`v0.70`（versionCode 57）** — 本版只做一件事：让 App 里显示的计划与计划文件逐字对上。处方解析不再「认不出就静默换一套」（非空原文解析失败会显式标出、原文照留），`Workouts` 的 `sets` 列真正驱动组数，App 默认种子改用新工作簿 `data/01_工作簿/RPL_ExDark_v0.70_Plan_2026-11-09.xlsx`（旧工作簿原样保留）。不随本版变的：CSV 26 列、`data/*.xlsx` 权威源、既有契约与 `SCHEMA_STAMP`。逐版变更看 `CHANGELOG.md`，门禁项数以 `gate.py` 实际输出为准（本文不抄数字）。
 
 > 文档以**子 README 为准**。本文件只做索引，冲突时以 `mobile/README.md` 为准。
 

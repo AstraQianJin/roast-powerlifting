@@ -1,0 +1,108 @@
+<!-- Rank badge symbol sprite · single graphic source for the whole app.
+     Inline this <svg> once into template.html's body; callers only write
+       <svg class="rk-ico rk-24"><use href="#rk-bronze"/></svg>
+     symbol ids derive from GL_RANKS[i].id: rk-{id} (color) / rk-{id}-mono (currentColor).
+     Gradient mid-stop = GL_RANKS[i].color; do not recolor anywhere else. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="rk-g-bronze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E3A468"/><stop offset=".48" stop-color="#CD7F32"/><stop offset="1" stop-color="#7A3F10"/>
+    </linearGradient>
+    <linearGradient id="rk-g-silver" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2F6FB"/><stop offset=".45" stop-color="#C0C8D4"/><stop offset="1" stop-color="#8893A3"/>
+    </linearGradient>
+    <linearGradient id="rk-g-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFE39B"/><stop offset=".45" stop-color="#F3C97D"/><stop offset="1" stop-color="#94640D"/>
+    </linearGradient>
+    <linearGradient id="rk-g-diamond" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#BDF3FF"/><stop offset=".45" stop-color="#38BDF8"/><stop offset="1" stop-color="#0A6C9E"/>
+    </linearGradient>
+    <linearGradient id="rk-g-master" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFB0BC"/><stop offset=".45" stop-color="#F43F5E"/><stop offset="1" stop-color="#8F0F28"/>
+    </linearGradient>
+  </defs>
+
+  <symbol id="rk-bronze" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="26" fill="url(#rk-g-bronze)"/>
+    <circle cx="32" cy="32" r="26" fill="none" stroke="#F7DDBF" stroke-width="1.6" opacity=".65"/>
+    <circle cx="32" cy="32" r="19.5" fill="#51290B" opacity=".5"/>
+    <circle cx="32" cy="32" r="19.5" fill="none" stroke="#F6C58C" stroke-width="1.3" opacity=".75"/>
+    <path d="M32 21.5 L43.5 33 L37 39.5 L32 34 L27 39.5 L20.5 33 Z" fill="#FFF4E6"/>
+  </symbol>
+
+  <symbol id="rk-silver" viewBox="0 0 64 64">
+    <rect x="8" y="8" width="48" height="48" rx="10" fill="url(#rk-g-silver)"/>
+    <rect x="8" y="8" width="48" height="48" rx="10" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity=".7"/>
+    <rect x="14" y="14" width="36" height="36" rx="6" fill="#4B5664" opacity=".45"/>
+    <rect x="14" y="14" width="36" height="36" rx="6" fill="none" stroke="#DEE6F0" stroke-width="1.2" opacity=".8"/>
+    <path d="M32 18 L41 27 L36 32 L32 28 L28 32 L23 27 Z" fill="#FFFFFF"/>
+    <path d="M32 30 L41 39 L36 44 L32 40 L28 44 L23 39 Z" fill="#FFFFFF"/>
+  </symbol>
+
+  <symbol id="rk-gold" viewBox="0 0 64 64">
+    <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z" fill="url(#rk-g-gold)"/>
+    <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z" fill="none" stroke="#FFF0C9" stroke-width="1.6" opacity=".7"/>
+    <path d="M32 11 L50 21 L50 43 L32 53 L14 43 L14 21 Z" fill="#5E3D06" opacity=".5"/>
+    <path d="M32 11 L50 21 L50 43 L32 53 L14 43 L14 21 Z" fill="none" stroke="#FFDE9A" stroke-width="1.2" opacity=".7"/>
+    <path d="M32 19 L49 45 L15 45 Z" fill="#FFF7DF"/>
+  </symbol>
+
+  <symbol id="rk-diamond" viewBox="0 0 64 64">
+    <path d="M32 3 L61 32 L32 61 L3 32 Z" fill="url(#rk-g-diamond)"/>
+    <path d="M32 3 L61 32 L32 61 L3 32 Z" fill="none" stroke="#E4FAFF" stroke-width="1.6" opacity=".7"/>
+    <path d="M32 11 L53 32 L32 53 L11 32 Z" fill="#06435F" opacity=".45"/>
+    <path d="M32 11 L53 32 L32 53 L11 32 Z" fill="none" stroke="#9FE7FF" stroke-width="1.2" opacity=".8"/>
+    <path d="M32 16 L36.9 26.6 L48.4 28.1 L39.9 36.3 L42.1 47.7 L32 42 L21.9 47.7 L24.1 36.3 L15.6 28.1 L27.1 26.6 Z" fill="#FFFFFF"/>
+  </symbol>
+
+  <symbol id="rk-master" viewBox="0 0 64 64">
+    <path d="M32 3 L57 12 L57 34 L32 61 L7 34 L7 12 Z" fill="url(#rk-g-master)"/>
+    <path d="M32 3 L57 12 L57 34 L32 61 L7 34 L7 12 Z" fill="none" stroke="#FFD7DE" stroke-width="1.6" opacity=".7"/>
+    <path d="M32 10 L50 17.5 L50 32 L32 52 L14 32 L14 17.5 Z" fill="#570818" opacity=".5"/>
+    <path d="M32 10 L50 17.5 L50 32 L32 52 L14 32 L14 17.5 Z" fill="none" stroke="#FFB3C1" stroke-width="1.2" opacity=".8"/>
+    <path d="M20 39 L20 28.5 L26.5 33.5 L32 23 L37.5 33.5 L44 28.5 L44 39 Z" fill="#FFF0F2"/>
+    <path d="M19.5 41.5 L44.5 41.5 L44.5 46 L19.5 46 Z" fill="#FFF0F2"/>
+  </symbol>
+
+  <symbol id="rk-bronze-mono" viewBox="0 0 64 64">
+    <g fill="none">
+      <circle cx="32" cy="32" r="26" stroke="currentColor" stroke-width="2.6"/>
+      <circle cx="32" cy="32" r="19.5" stroke="currentColor" stroke-width="1.4" opacity=".65"/>
+      <path d="M32 21.5 L43.5 33 L37 39.5 L32 34 L27 39.5 L20.5 33 Z" fill="currentColor"/>
+    </g>
+  </symbol>
+
+  <symbol id="rk-silver-mono" viewBox="0 0 64 64">
+    <g fill="none">
+      <rect x="8" y="8" width="48" height="48" rx="10" stroke="currentColor" stroke-width="2.6"/>
+      <rect x="14" y="14" width="36" height="36" rx="6" stroke="currentColor" stroke-width="1.4" opacity=".65"/>
+      <path d="M32 18 L41 27 L36 32 L32 28 L28 32 L23 27 Z" fill="currentColor"/>
+      <path d="M32 30 L41 39 L36 44 L32 40 L28 44 L23 39 Z" fill="currentColor"/>
+    </g>
+  </symbol>
+
+  <symbol id="rk-gold-mono" viewBox="0 0 64 64">
+    <g fill="none">
+      <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z" stroke="currentColor" stroke-width="2.6"/>
+      <path d="M32 11 L50 21 L50 43 L32 53 L14 43 L14 21 Z" stroke="currentColor" stroke-width="1.4" opacity=".65"/>
+      <path d="M32 19 L49 45 L15 45 Z" fill="currentColor"/>
+    </g>
+  </symbol>
+
+  <symbol id="rk-diamond-mono" viewBox="0 0 64 64">
+    <g fill="none">
+      <path d="M32 3 L61 32 L32 61 L3 32 Z" stroke="currentColor" stroke-width="2.6"/>
+      <path d="M32 11 L53 32 L32 53 L11 32 Z" stroke="currentColor" stroke-width="1.4" opacity=".65"/>
+      <path d="M32 16 L36.9 26.6 L48.4 28.1 L39.9 36.3 L42.1 47.7 L32 42 L21.9 47.7 L24.1 36.3 L15.6 28.1 L27.1 26.6 Z" fill="currentColor"/>
+    </g>
+  </symbol>
+
+  <symbol id="rk-master-mono" viewBox="0 0 64 64">
+    <g fill="none">
+      <path d="M32 3 L57 12 L57 34 L32 61 L7 34 L7 12 Z" stroke="currentColor" stroke-width="2.6"/>
+      <path d="M32 10 L50 17.5 L50 32 L32 52 L14 32 L14 17.5 Z" stroke="currentColor" stroke-width="1.4" opacity=".65"/>
+      <path d="M20 39 L20 28.5 L26.5 33.5 L32 23 L37.5 33.5 L44 28.5 L44 39 Z" fill="currentColor"/>
+      <path d="M19.5 41.5 L44.5 41.5 L44.5 46 L19.5 46 Z" fill="currentColor"/>
+    </g>
+  </symbol>
+</svg>

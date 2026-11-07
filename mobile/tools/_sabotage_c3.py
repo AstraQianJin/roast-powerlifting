@@ -40,8 +40,8 @@ MUT = [
      "shard.warn='归档分片无法识别，已按空归档处理（磁盘原文未改写）'; writePlanArchive(); return shard;"),
     ("if(READONLY) return {ok:false, reason:'readonly'};",
      "if(false&&READONLY) return {ok:false, reason:'readonly'};"),
-    ("const WORK_KEYS=['schemaVer','week','day','profile','structure','weeks','jts','e1rmLog','gpp','levelSnap','advAudit','gearDefaults',",
-     "const WORK_KEYS=['schemaVer','week','day','profile','structure','weeks','jts','e1rmLog','gpp','levelSnap','advAudit','gearDefaults','planArchive',"),
+    ("const WORK_KEYS=['schemaVer','week','day','profile','structure','weeks','jts','e1rmLog','gpp','levelSnap','advAudit',",
+     "const WORK_KEYS=['schemaVer','week','day','profile','structure','weeks','jts','e1rmLog','gpp','levelSnap','advAudit','planArchive',"),
     ("archive:'savePlanArchive'", "archive:'savePlanArch'"),
 ]
 EXPECT = {

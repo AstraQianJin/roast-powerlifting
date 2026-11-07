@@ -156,11 +156,10 @@ async function main(){
         + `ds.slice(0,2).forEach(function(d,i){setDayLoc(w,d,i?'铁馆 B 区':'铁馆 A 区');});`
         + `renderEnvSheet();})()`],
       ['35-env-light', `setTheme('light')`],
-      ['36-calc-stack', `closeAllSheets();setTheme('dark');[25,20,15].forEach(function(k){togglePlateKg(k);});`
-        + `renderEnvSheet();openEditor(0)`],
-      ['37-calc-loaded', `(function(){var s=document.getElementById('lcType');s.value='loaded';`
+      ['36-tool-load', `closeAllSheets();setTheme('dark');openToolLoad()`],
+      ['37-tool-load-loaded', `(function(){var s=document.getElementById('toolLoadType');s.value='loaded';`
         + `s.dispatchEvent(new Event('change'));})()`],
-      ['38-calc-fill', `document.getElementById('lcFillBtn').click()`],
+      ['38-tool-coef', `closeSheet('toolLoadSheet');openToolCoef()`],
       /* v0.27 阈值回测：出厂空账是一张空态卡，记满两周才看得到那张 11 行的表 */
       ['39-calib-empty', `closeAllSheets();openCalibSheet()`],
       ['40-calib-table', `(function(){

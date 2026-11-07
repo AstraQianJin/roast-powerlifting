@@ -6,19 +6,40 @@ android {
     namespace = 'com.roast.exdark'
     compileSdk = 37
 
+    /* 固定 release 签名（v0.70 起）：keystore 与口令都在仓库外的本机目录，
+       仓库里只有读法（gate S52 钉住「release 不许用 debug 签名」）。
+       换了这把钥匙 = 换签名 = 旧包必须卸掉才能装；没有它就是不可发布状态（宁可构建失败）。 */
+    signingConfigs {
+        release {
+            def kp = new File(System.getProperty('user.home'), '.rpl-keys/keystore.properties')
+            if (!kp.exists()) {
+                throw new GradleException(
+                    "缺少 release 签名配置：${kp}（keystore 与口令不随仓库分发，按 mobile/README.md §1 本机生成）")
+            }
+            def signing = new Properties()
+            kp.withInputStream { signing.load(it) }
+            storeFile = new File(signing['storeFile'])
+            storePassword = signing['storePassword']
+            keyAlias = signing['keyAlias']
+            keyPassword = signing['keyPassword']
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
     defaultConfig {
         applicationId = 'com.roast.exdark'
         minSdk = 24
         targetSdk = 37
-        versionCode = 56
-        versionName = '0.61'
+        versionCode = 57
+        versionName = '0.70'
     }
 
     buildTypes {
         debug { minifyEnabled = false }
         release {
             minifyEnabled = false
-            signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.release
         }
     }
 

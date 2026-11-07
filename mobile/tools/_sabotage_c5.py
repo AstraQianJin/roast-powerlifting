@@ -35,8 +35,8 @@ MUT = [
       'accept=".csv,text/csv"')],
     [("AndroidBridge.exportPlanXlsx(name,btoa(bin));",
       "AndroidBridge.exportPlanXlsxRenamed(name,btoa(bin));")],
-    [("AndroidBridge.exportDoc('exdark_store_backup.txt','text/plain',btoa(bin));",
-      "AndroidBridge.exportCsv('exdark_store_backup.txt', f.raw);")],
+    [("AndroidBridge.exportDoc(name,'application/json',btoa(bin));",
+      "AndroidBridge.exportCsv(name, f.raw);")],
 ]
 EXPECT = {
     "1": "gate S14 红（成品）+ v3v A0/V3 红",

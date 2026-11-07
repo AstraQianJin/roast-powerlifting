@@ -56,8 +56,8 @@ TPL = os.path.join(HERE, "template.html")
 
 # (文件, 原文片段, 故障片段, 应该红在哪)
 FAULTS = [
-    (TPL, "'advAuto','gearKit','teleOn','lcOpen','nick'];",
-     "'advAuto','gearKit','teleOnx','lcOpen','nick'];",
+    (TPL, "'advAuto','gearKit','teleOn','lcOpen','gearProfile','nick'];",
+     "'advAuto','gearKit','teleOnx','lcOpen','gearProfile','nick'];",
      "F1 prefs 名单里的键名漂了 → S44 红（teleOn 不在 PREF_KEYS）+ v3v TM4 红（开关点了不落盘）"),
     (TPL, "state.teleOn=(state.teleOn===true);",
      "state.teleOn=(state.teleOn!==false);",

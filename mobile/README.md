@@ -5,9 +5,8 @@
 | 项 | 值 |
 |---|---|
 | 一句话定位 | 力量举（SBD）周期化训练记录的**离线** Android App：单文件 HTML + 纯 Java WebView 壳，零联网、零第三方依赖 |
-| 现行版本 | `v0.61`（`versionName = '0.61'` / `versionCode = 56`） |
-| 产物路径 | `../release/RPL_ExDark_v0.61_Pro.apk`（由 `python tools/pack.py` 产出；更早版本出到 `archive/release/`） |
-| 预览说明 | 本版为预览：第 1+2 块（首页模块精简 + 设置独立页/返回栈）已进；三计算器与共享段位徽章、器械身份、显式档位表未进；正式内测第一版留 `0.70` / code 57 |
+| 现行版本 | `v0.70`（`versionName = '0.70'` / `versionCode = 57`） |
+| 产物路径 | `../release/RPL_ExDark_v0.70_Pro.apk`（由 `python tools/pack.py` 产出；更早版本出到 `archive/release/`） |
 | 包名 / 权限 | `com.roast.exdark`，仅 `VIBRATE`，无 `INTERNET` |
 | SDK | minSdk 24 / targetSdk 37 / compileSdk 37，JDK 17 |
 | 最后更新 | 取法：`git log -1 --date=short --format=%cd -- mobile/`（本文不写死日期，写了就过期） |

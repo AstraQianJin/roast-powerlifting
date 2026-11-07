@@ -167,7 +167,8 @@ const E_PROBE = `(function(){
   loads.forEach(function(L){ reps.forEach(function(R){ rpes.forEach(function(P){ trpes.forEach(function(TR){
     e.push([L,R,P,TR,e1rm(L,R,P,TR)]);
   }); }); }); });
-  var bws=[0,34.9,35,36,40,47.5,59,74.5,83,93,105,120,149.9,150,150.95,200.5,200.95,210,211,300,-20];
+  var bws=[0,34.9,34.99,35,36,39.99,40,47.5,59,74.5,83,93,105,120,149.9,149.99,150,150.01,
+           150.94,150.95,150.96,200.5,200.94,200.95,200.96,209.99,210,210.01,211,300,-20];
   var totals=[0,100,300,500,600.5,900];
   ['M','F','X',null].forEach(function(g){ ['classic','equipped','weird',null].forEach(function(q){ [false,true].forEach(function(b){
     totals.forEach(function(T){ bws.forEach(function(B){ gl.push([T,B,g,q,b,calcIpfGl(T,B,g,q,b)]); }); });
@@ -178,8 +179,11 @@ const E_PROBE = `(function(){
            89.99,90,90.01,92,98,99,100,120,999,1e9,NaN,null,'x'];
   gls.forEach(function(v){ var r=calcGlRank(v);
     rank.push([v,r.id,r.stars,r.starsStr,r.nextStarGl,r.deltaNext,r.labelZh]); });
+  /* 未取整判档的验证点（E3c）：真值 44.9972 → 青铜 5★，显示值 45.00 → 白银 1★。 */
+  var raw328=calcIpfGlRaw(328.982,85,'M','classic',false);
   return JSON.stringify({e:e, gl:gl, dots:dots, wil:wil, rank:rank,
-    tiers:GL_RANKS.map(function(t){return [t.id,t.min,t.max,t.step];})});
+    g8:[raw328,calcIpfGl(328.982,85,'M','classic',false),calcGlRank(raw328).id,calcGlRank(raw328).stars,calcGlRank(45).id],
+    tiers:GL_RANKS.map(function(t){return [t.id,t.min,t.step];})});
 })`;
 
 /* ============================ J 段：JTS 全域 + 恢复驱动组数 ============================ */
@@ -214,8 +218,11 @@ const J_PROBE = `(function(){
       r.bp.min,r.bp.rec,r.bp.max,r.bp.cur,r.dl.min,r.dl.rec,r.dl.max,r.dl.cur,
       r.sq.planned,r.sq.band.id,r.mult]);
   }
-  stepRecSet('sq',+9);  out.step.push(['hi',state.structure.recSetsOverride.sq]);
-  stepRecSet('sq',-99); out.step.push(['lo',state.structure.recSetsOverride.sq]);
+  /* 手调上限：不得低于 10，也不得高于模型本周 MRV 上限（高容量周模型建议本身会 >10，
+     硬钳 10 会让「加一组」把 14 压回 10）。期望值由 computeRecommendedSets 现算，不在测试里抄数字。 */
+  var capModel=computeRecommendedSets().sq;
+  stepRecSet('sq',+9);  out.step.push(['hi',state.structure.recSetsOverride.sq,Math.max(10,capModel.max)]);
+  stepRecSet('sq',-99); out.step.push(['lo',state.structure.recSetsOverride.sq,1]);
   resetRecSets();       out.step.push(['reset',JSON.stringify(state.structure.recSetsOverride)]);
   var savedJts=state.jts;
   state.jts={'5_B':{sleep:9,stress:1,health:9,drive:9,willingness:9,soreness:1}};
@@ -388,14 +395,17 @@ const F_PROBE = `(function(seeds){
 function e1rmRef(load, reps, rpe, targetRpe) {
   const L = +load || 0, R = +reps || 0, P = +rpe || 0;
   if (!(L > 0) || !(R > 0)) return 0;
+  /* 与页面 effRpeOf 同构：1–4.99 夹到 5；5–10 原样；空/0/负数视为未记录。
+     两者都没有 RPE 时按无 RPE 的 Epley 原式（rir=0），不补默认值。 */
   const usable = (v) => v >= 5 && v <= 10;
   const T = +targetRpe;
-  const eff = usable(P) ? P : (usable(T) ? T : 10);
-  const rir = 10 - eff > 5 ? 5 : (10 - eff < 0 ? 0 : 10 - eff);
+  const eff = (P >= 1 && P < 5) ? 5 : (usable(P) ? P : (usable(T) ? T : null));
+  const rir = eff === null ? 0
+    : (10 - eff > 5 ? 5 : (10 - eff < 0 ? 0 : 10 - eff));
   const repCap = R > 12 ? 12 : R;
   return Math.round(L * (1 + (repCap + rir) / 30) * 10) / 10;
 }
-/* IPF 系数表（GL，2022 版）：键 = 性别_装备_项，与页面 GL_COEF 同源不同抄。 */
+/* IPF 系数表（GL，2020 版，2020-05-01 启用）：键 = 性别_装备_项，与页面 GL_COEF 同源不同抄。 */
 const GL_REF = {
   M_CL_PL: [1199.72839, 1025.18162, 0.00921], M_EQ_PL: [1236.25115, 1449.21864, 0.01644],
   M_CL_BP: [320.98041, 281.40258, 0.01008], M_EQ_BP: [381.22073, 733.79378, 0.02398],
@@ -404,7 +414,8 @@ const GL_REF = {
 };
 function glRef(total, bw, gender, equip, isBench) {
   const T = +total || 0, B = +bw || 0;
-  if (B < 35) return 0;
+  /* 与页面 GL_BW_FLOOR 同一口径：男子 40 / 女子 35 以下不给分。 */
+  if (B < (gender === 'F' ? 35 : 40)) return 0;
   const key = (gender === 'F' ? 'F' : 'M') + '_' + (equip === 'equipped' ? 'EQ' : 'CL') +
     '_' + (isBench ? 'BP' : 'PL');
   const c = GL_REF[key] || GL_REF.M_CL_PL;
@@ -436,15 +447,15 @@ function wilksRef(total, bw, gender) {
   const s = poly(WILKS_REF[gender === 'F' ? 'F' : 'M'], B);
   return s <= 0 ? 0 : +(T * 600 / s).toFixed(2);
 }
-/* 段位区间表第二份：只写边界与步长，星级与下一颗星门槛按定义重算。 */
-const RANK_REF = [['bronze', 0, 45, 9], ['silver', 45, 60, 3], ['gold', 60, 75, 3],
-  ['diamond', 75, 90, 3], ['master', 90, 999, 2]];
+/* 段位区间表第二份：只写边界与步长（max 无读者，已删），星级与下一颗星门槛按定义重算。 */
+const RANK_REF = [['bronze', 0, 9], ['silver', 45, 3], ['gold', 60, 3],
+  ['diamond', 75, 3], ['master', 90, 2]];
 function glRankRef(gl) {
   const s = Math.max(0, +gl || 0);
   let t = RANK_REF[0];
   for (let i = 0; i < RANK_REF.length; i++) if (s >= RANK_REF[i][1]) t = RANK_REF[i];
-  const stars = Math.min(5, Math.floor((s - t[1]) / t[3]) + 1);
-  const next = (t[0] === 'master' && stars === 5) ? null : +(t[1] + stars * t[3]).toFixed(2);
+  const stars = Math.min(5, Math.floor((s - t[1]) / t[2]) + 1);
+  const next = (t[0] === 'master' && stars === 5) ? null : +(t[1] + stars * t[2]).toFixed(2);
   return { id: t[0], stars: stars, nextStarGl: next,
     deltaNext: next === null ? 0 : Math.max(0, +(next - s).toFixed(2)) };
 }
@@ -505,7 +516,7 @@ const C_PROBE = `(function(dirty){
   var mvBack=null, notesBack=null, dirtyRec=null;
   recs.forEach(function(r){ var c=csvParseLine(r.t);
     if(c[iRow]==='900'){ dirtyRec={n:c.length, mv:c[iMv], notes:c[iNotes], rx:c[iRx]}; } });
-  all.forEach(function(r){ if(r.row_idx==='900'){ mvBack=r.movement; notesBack=r.notes; } });
+  all.forEach(function(r){ if(r.row_idx==='900'){ mvBack=r.movement; notesBack=stripCsvMarkers(r.notes); } });
   /* 4) 自己的导出件重新导入：跳过数必须为 0，四类必收记录都在 */
   var imp=importUnifiedCsv(dump);
   var weeksAfter=Object.keys(state.weeks).length;
@@ -851,6 +862,34 @@ async function main() {
       '13 次与 12 次同值、RPE 越低估值越高',
       zeroBad.length === 0 && capBad === 0 && rpeBad === 0,
       '截断不一致 ' + capBad + ' / 单调反例 ' + rpeBad + ' / 归零反例 ' + zeroBad.length);
+    /* G3：1–4.99 夹到 5，是平台不是跳变（4.9 与 5 必须同值） */
+    let clampBad = 0;
+    [20, 60, 100, 142.5, 200].forEach(L => [0, 5, null].forEach(TR => {
+      const a = idx4.get(JSON.stringify([L, 5, 4, TR]));
+      const b = idx4.get(JSON.stringify([L, 5, 5, TR]));
+      const c = idx4.get(JSON.stringify([L, 5, 4.9, TR]));
+      if (a !== b || c !== b) clampBad++;
+    }));
+    T('E2b RPE 夹取：1–4.99 与同点 5 同值（曲线左侧是平台，不跳变）',
+      clampBad === 0, '反例 ' + clampBad);
+    /* G2：唯一判定口 effRpeOf 的分支表 */
+    const er = JSON.parse(await evalIn(ws, id,
+      'JSON.stringify([effRpeOf(4.5,null),effRpeOf(0,null),effRpeOf(-1,null),effRpeOf(null,null),effRpeOf("",null),effRpeOf(10.5,7),effRpeOf(null,5),effRpeOf(null,11),effRpeOf(7,null)])'));
+    T('E2c effRpeOf 分支：1–4.99→5；空/null/0/负数仍为未记录；target 只在显式 5–10 时生效',
+      er[0].rpe === 5 && er[0].clamped === true && er[0].src === 'actual'
+      && er[1].rpe === null && er[2].rpe === null && er[3].rpe === null && er[4].rpe === null
+      && er[5].rpe === 7 && er[5].src === 'target'
+      && er[6].rpe === 5 && er[6].src === 'target'
+      && er[7].rpe === null && er[8].rpe === 7,
+      JSON.stringify(er));
+    /* G4：逐点验证「所有 1–4.99 与同点 5 相同」，覆盖整张探针矩阵 */
+    const g4Bad = ee.e.filter(r => {
+      const P = +r[2];
+      if (!(P >= 1 && P < 5)) return false;
+      return r[4] !== idx4.get(JSON.stringify([r[0], r[1], 5, r[3]]));
+    });
+    T('E2d 逐点 G4：' + ee.e.filter(r => +r[2] >= 1 && +r[2] < 5).length +
+      ' 个 RPE<5 点与同点 5 完全同值', g4Bad.length === 0, '反例 ' + g4Bad.length);
     SECT.s = 'E3';
     const glBad = [];
     ee.gl.forEach(r => {
@@ -859,6 +898,19 @@ async function main() {
     });
     T('E3 IPF GL 与官方系数表独立重算逐点相同 · ' + ee.gl.length + ' 点（性别×装备×项×总量×体重）',
       glBad.length === 0, glBad.length ? glBad.length + ' 点不同 → ' + glBad.slice(0, 3).join(' ; ') : '0 点差异');
+    /* G1：系数常量逐位比对（24 个数字） */
+    const COEF_EXP = '{"M_CL_PL":[1199.72839,1025.18162,0.00921],"M_EQ_PL":[1236.25115,1449.21864,0.01644],'
+      + '"M_CL_BP":[320.98041,281.40258,0.01008],"M_EQ_BP":[381.22073,733.79378,0.02398],'
+      + '"F_CL_PL":[610.32796,1045.59282,0.03048],"F_EQ_PL":[758.63878,949.31382,0.02435],'
+      + '"F_CL_BP":[142.40398,442.52671,0.04724],"F_EQ_BP":[221.82209,357.00377,0.02937]}';
+    const coefGot = await evalIn(ws, id, 'JSON.stringify(GL_COEF)');
+    T('E3b GL 系数表 24 个常量与 2020 版（2020-05-01 启用）独立值逐位相同',
+      coefGot === COEF_EXP, coefGot === COEF_EXP ? '8 组 × 3 = 24 个' : '常量不同 → ' + coefGot.slice(0, 80));
+    /* G8：判档用未取整真值；显示才取两位小数 */
+    T('E3c 判档用未取整真值：44.9972→青铜 5★，显示 45.00→白银 1★',
+      ee.g8[0] < 45 && ee.g8[0] > 44.99 && Math.abs(ee.g8[1] - 45) < 1e-9
+      && ee.g8[2] === 'bronze' && ee.g8[3] === 5 && ee.g8[4] === 'silver',
+      JSON.stringify(ee.g8));
     const glKey = (a) => JSON.stringify([a[0], a[1], a[2], a[3], a[4]]);
     const glMap = new Map();
     ee.gl.forEach(r => glMap.set(glKey(r), r[5]));
@@ -867,17 +919,28 @@ async function main() {
       if ((r[3] === 'weird' || r[3] === null) && r[5] !== glMap.get(glKey([r[0], r[1], r[2], 'classic', r[4]]))) return true;
       return false;
     });
-    const bw35 = ee.gl.filter(r => r[1] < 35 && r[5] !== 0);
+    const floorBad = ee.gl.filter(r => {
+      const g = r[2] === 'F' ? 'F' : 'M', B = +r[1] || 0, fl = g === 'F' ? 35 : 40;
+      return B < fl && r[5] !== 0;
+    });
     let monoBad = 0;
     [[0, 'M', 'classic', false], [500, 'F', 'equipped', true], [600.5, 'M', 'classic', true]].forEach(base => {
       let prev = null;
-      ee.gl.filter(r => r[0] === base[0] && r[2] === base[1] && r[3] === base[2] && r[4] === base[3] && r[1] >= 35)
+      ee.gl.filter(r => r[0] === base[0] && r[2] === base[1] && r[3] === base[2] && r[4] === base[3]
+        && r[1] >= (r[2] === 'F' ? 35 : 40))
         .forEach(r => { if (prev !== null && r[5] > prev) monoBad++; prev = r[5]; });
     });
-    T('E4 GL 边界：体重 <35 归零（' + bw35.length + ' 处违例）、未知性别/装备回落男·classic·全举，' +
-      '同总量下随体重不升',
-      fbBad.length === 0 && bw35.length === 0 && monoBad === 0,
-      '回落反例 ' + fbBad.length + ' / <35 反例 ' + bw35.length + ' / 单调反例 ' + monoBad);
+    T('E4 GL 边界：体重低于性别下限归零（男 40 / 女 35，' + floorBad.length + ' 处违例）、' +
+      '未知性别/装备回落男·classic·全举，同总量下随体重不升',
+      fbBad.length === 0 && floorBad.length === 0 && monoBad === 0,
+      '回落反例 ' + fbBad.length + ' / 低于下限反例 ' + floorBad.length + ' / 单调反例 ' + monoBad);
+    /* G7：下限四个点必须恰好卡在 40 / 35 */
+    const g7 = [glMap.get(glKey([500, 39.99, 'M', 'classic', false])),
+      glMap.get(glKey([500, 40, 'M', 'classic', false])),
+      glMap.get(glKey([500, 34.99, 'F', 'classic', false])),
+      glMap.get(glKey([500, 35, 'F', 'classic', false]))];
+    T('E4b GL 性别下限：男 39.99 不给分 / 40 起给分；女 34.99 不给分 / 35 起给分',
+      g7[0] === 0 && g7[1] > 0 && g7[2] === 0 && g7[3] > 0, g7.join('/'));
     SECT.s = 'E5';
     const dotsBad = [];
     ee.dots.forEach(r => {
@@ -895,6 +958,12 @@ async function main() {
       (210) + ' / 女子 40..150 钳到边界同值',
       dotsBad.length === 0 && dotsClampBad.length === 0,
       dotsBad.length ? dotsBad.slice(0, 2).join(' ; ') : '钳制反例 ' + dotsClampBad.length);
+    /* G5：DOTS 上下界逐点——149.99/150/150.01 与 209.99/210/210.01 三连必须同值 */
+    const dsB = (T, B, g) => dotsMap.get(JSON.stringify([T, B, g]));
+    T('E5b DOTS 钳制逐点：女 149.99=150=150.01、男 209.99=210=210.01',
+      dsB(500, 149.99, 'F') === dsB(500, 150, 'F') && dsB(500, 150.01, 'F') === dsB(500, 150, 'F')
+      && dsB(500, 209.99, 'M') === dsB(500, 210, 'M') && dsB(500, 210.01, 'M') === dsB(500, 210, 'M'),
+      [dsB(500, 149.99, 'F'), dsB(500, 150, 'F'), dsB(500, 150.01, 'F'), dsB(500, 209.99, 'M'), dsB(500, 210, 'M'), dsB(500, 210.01, 'M')].join('/'));
     SECT.s = 'E6';
     const wilBad = [];
     ee.wil.forEach(r => {
@@ -911,6 +980,12 @@ async function main() {
     T('E6 Wilks 2 与官方系数独立重算逐点相同（' + ee.wil.length + ' 点），体重钳到 40..200.95 / 女子 ..150.95',
       wilBad.length === 0 && wilClampBad.length === 0,
       wilBad.length ? wilBad.slice(0, 2).join(' ; ') : '钳制反例 ' + wilClampBad.length);
+    /* G6：Wilks 2 钳制逐点——上下界三连同值 */
+    const wsB = (T, B, g) => wilMap.get(JSON.stringify([T, B, g]));
+    T('E6b Wilks 2 钳制逐点：女 150.94=150.95=150.96、男 200.94=200.95=200.96',
+      wsB(500, 150.94, 'F') === wsB(500, 150.95, 'F') && wsB(500, 150.96, 'F') === wsB(500, 150.95, 'F')
+      && wsB(500, 200.94, 'M') === wsB(500, 200.95, 'M') && wsB(500, 200.96, 'M') === wsB(500, 200.95, 'M'),
+      [wsB(500, 150.94, 'F'), wsB(500, 150.95, 'F'), wsB(500, 150.96, 'F'), wsB(500, 200.94, 'M'), wsB(500, 200.95, 'M'), wsB(500, 200.96, 'M')].join('/'));
     SECT.s = 'E7';
     const rankBad = [];
     ee.rank.forEach(r => {
@@ -922,7 +997,22 @@ async function main() {
     });
     T('E7 段位与星级与区间表独立重算逐点相同（' + ee.rank.length + ' 个 GL 值，含 NaN/null/字符串）',
       rankBad.length === 0, rankBad.length ? rankBad.slice(0, 3).join(' ; ') : '0 处差异');
-    const tiersExp = JSON.stringify(RANK_REF.map(r => [r[0], r[1], r[2], r[3]]));
+    /* G6（段位部分）：0..500 / 0.01 全扫，区间归属单调、星级与门槛差自洽 */
+    let sweepBad = 0, sweepN = 0;
+    for (let g = 0; g <= 500; g += 0.01) {
+      sweepN++;
+      const a = glRankRef(g);
+      const g2 = Math.round((g + 1e-9) * 100) / 100;
+      const b = glRankRef(g2);
+      const ia = RANK_REF.findIndex(t => t[0] === a.id), ib = RANK_REF.findIndex(t => t[0] === b.id);
+      if (ib < ia) sweepBad++;
+      if (!(a.stars >= 1 && a.stars <= 5)) sweepBad++;
+      if (a.nextStarGl !== null && !(a.nextStarGl > g)) sweepBad++;
+      if (a.nextStarGl !== null && !(a.deltaNext >= 0 && a.deltaNext <= 9.0000001)) sweepBad++;
+    }
+    T('E7b 段位全扫 0..500（步长 0.01）：区间只升不降、stars∈1..5、nextGL>当前、Δ∈[0,step] · ' + sweepN + ' 点',
+      sweepBad === 0, '反例 ' + sweepBad);
+    const tiersExp = JSON.stringify(RANK_REF.map(r => [r[0], r[1], r[2]]));
     const selfBad = ee.rank.filter(r => {
       const stars = r[2], next = r[4], delta = r[5];
       if (!(stars >= 1 && stars <= 5)) return true;
@@ -1007,10 +1097,11 @@ async function main() {
       recBad.length === 0, recBad.length ? recBad.slice(0, 2).map(r => 'W' + r[0] + ' ' + JSON.stringify(r.slice(3, 8))).join(' ; ')
         : jj.weeks.length + ' 周全过 / deload 周 ' + jj.weeks.filter(r => r[1] === 'Deload').length + ' 个');
     SECT.s = 'J6';
-    const stepOk = jj.step[0][1] === 10 && jj.step[1][1] === 1 &&
+    const stepOk = jj.step[0][1] === jj.step[0][2] && jj.step[0][2] >= 10 &&
+      jj.step[1][1] === 1 &&
       jj.step[2][1] === JSON.stringify({ sq: null, bp: null, dl: null });
-    T('J6 手调组数钳在 1–10（+9 顶到 10、−99 压到 1），一键恢复把三栏都清回 null',
-      stepOk, jj.step.map(x => x[0] + '=' + x[1]).join(' / '));
+    T('J6 手调组数钳在 1–max(10, 模型 MRV)（+9 顶到模型上限、−99 压到 1），一键恢复把三栏都清回 null',
+      stepOk, jj.step.map(x => x[0] + '=' + x[1] + (x[2] !== undefined ? '(上限' + x[2] + ')' : '')).join(' / '));
     T('J7 旧版日级 JTS 键自动迁移：读到 "5_B" 后按 W5 返回同一份六维样本，并写回新键',
       jj.legacy.keys === 6 && jj.legacy.sleep === 9 && jj.legacy.newKey === true,
       JSON.stringify(jj.legacy));
@@ -1233,7 +1324,7 @@ async function main() {
             冻结、activeWeekKeys）+ F 往返 5（契约、行几何、往返、不动点、回装闭合）
           + C 交换 6（协议、行级、文本级、导出结构、端到端、重导入）
           + A 归档 6（环界、顺序、取回、超限、坏 JSON、缺表条目）。 */
-  const EXP_N = 58;
+  const EXP_N = 67;
   if (PASS + FAIL !== EXP_N) {
     LINES.push('FAIL  Z1 断言总数漂移（实到 ' + (PASS + FAIL) + '，应 ' + EXP_N + '）');
     FAIL++;

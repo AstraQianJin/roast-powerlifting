@@ -48,6 +48,9 @@ const PANELS = [
   { id: 'logSheet', open: 'openLogSheet', args: [] },
   { id: 'adviceSheet', open: 'openAdviceSheet', args: [] },
   { id: 'calibSheet', open: 'openCalibSheet', args: [] },
+  { id: 'toolLoadSheet', open: 'openToolLoad', args: [] },
+  { id: 'toolRmSheet', open: 'openToolRm', args: [] },
+  { id: 'toolCoefSheet', open: 'openToolCoef', args: [] },
   { id: 'progLibSheet', open: 'openProgLibSheet', args: [] },
   { id: 'stratLibSheet', open: 'openStratLibSheet', args: [] },
   { id: 'brSheet', open: 'openBrowse', args: ['manage'] },
@@ -99,7 +102,8 @@ const FN_NEEDED = ['openSettings', 'openEditor', 'openProfile', 'openStructSheet
   /* v0.26 环境配置与本地计算器：L 段真的点这些控件，名字漂了就是「点了个不存在的开关」 */
   'renderEnvSheet', 'renderEnvLoc', 'saveDayLoc', 'dayLoc', 'activeWeekNums',
   'plateStock', 'plateOn', 'togglePlateKg', 'lcPickType', 'renderLoadCalc',
-  'readLoadCalc', 'fillLoadFromCalc', 'lcTotal', 'lcReset', 'exportUnifiedCsv', 'xStateToPlanDict',
+  'readLoadCalc', 'openToolLoad', 'runToolRm', 'openToolRm', 'runToolCoef', 'openToolCoef',
+  'applyToolsFold', 'toggleToolsFold', 'rankIconHtml', 'calcGlRank', 'lcTotal', 'lcReset', 'exportUnifiedCsv', 'xStateToPlanDict',
   /* v0.27 阈值回测：E 段真点 chartCalibGo，名字漂了就是一层打不开的面板 */
   'openCalibSheet', 'renderCalib', 'calibSweep', 'withAutoreg',
   /* v0.29 B 段真点动作选择链：这几个名字只在 JS 拼串的 onclick 里出现，
@@ -597,7 +601,7 @@ function T(label, ok, detail) {
   PASS += ok ? 1 : 0; FAIL += ok ? 0 : 1;
   LINES.push((ok ? 'PASS  ' : 'FAIL  ') + label + (detail !== undefined ? '  [' + detail + ']' : ''));
 }
-const EXP_N = 249;                       // 正常一轮应有的条数（Z0 只在崩了才出现，不计入）；v0.44/F20 advSetSheet 加 7 条（4 档几何 + BACK 收口 + 入口 2 腿）；v0.70 档案/水平合并成一行，入口减 1 条 → 2 腿减 2
+const EXP_N = 266;                       // 正常一轮应有的条数（Z0 只在崩了才出现，不计入）；v0.44/F20 advSetSheet 加 7 条（4 档几何 + BACK 收口 + 入口 2 腿）；v0.70 档案/水平合并成一行，入口减 1 条 → 2 腿减 2；v0.70 加 Dk1（底部日卡在 360px 内不被长日名撑出屏）；v0.70 工具区三张 sheet 加 15（3×4 档几何 + 3 BACK 收口）；v0.70 加 G12（320px 工具区/RPE 提示不裁切）
 let SECT = { s: 'A0' };
 
 function send(ws, idRef, method, params) {
@@ -1120,11 +1124,14 @@ async function main() {
     function wk(list){var o={};o[d]={title:'U FIX',exercises:list};return o;}
     /* 夹具必须落在「对比周」下拉真的选得到的那一对上：adviceSrcWeekOptions 的默认值 =
        最后一个可选源周 = 末周−1，内置 8 周模板下就是 W7 → W8。 */
-    state.weeks['6']=wk([]);
-    state.weeks['7']=wk([mk(900,'U Up','T1.Mod',120,3,6,7,6),mk(901,'U Hard','T2.5x5',100,5,9.6,7,3),
-                          mk(902,'U DL','T1.Mod',120,3,6,7,6)]);
-    state.weeks['8']=wk([mk(900,'U Up','T1.Mod',120,3,6,7,6),mk(901,'U Hard','T2.5x5',100,5,9.6,7,3),
-                          mk(902,'U DL','T1.DL',120,3,6,7,6)]);
+    /* 整块换掉周表（同 O 段口径）：默认源周 = 末周−1 恒为 W7 → W8，不随种子计划长度漂移。
+       换表后必须把当前周/日也落进新表：renderAll 会读 state.weeks[state.week][state.day]，
+       留在旧号上会让写回后的重渲染抛错（应用按钮点了没 toast、也不算失败，纯静默）。 */
+    state.week=7; state.day=d;
+    state.weeks={'6':wk([]),'7':wk([mk(900,'U Up','T1.Mod',120,3,6,7,6),mk(901,'U Hard','T2.5x5',100,5,9.6,7,3),
+                          mk(902,'U DL','T1.Mod',120,3,6,7,6)]),
+                 '8':wk([mk(900,'U Up','T1.Mod',120,3,6,7,6),mk(901,'U Hard','T2.5x5',100,5,9.6,7,3),
+                          mk(902,'U DL','T1.DL',120,3,6,7,6)])};
     state.advAudit=[]; return d;})()`);
   /* 基线取在夹具注入之后：夹具本身就要改周表，拿进段前的哈希去比「没写」等于比夹具自己。 */
   const uLedger0 = await ev('__uiv.ledgerHash()');
@@ -1347,40 +1354,40 @@ async function main() {
     + ' 列数=' + lLoc.cols);
 
   await ev('closeAllSheets()'); await settle();
-  await call('openEditor', [0]); await settle();
+  await call('openToolLoad', []); await settle();
   const lKeys = JSON.parse(await ev('JSON.stringify(LC_TYPES.map(function(t){return t.k;}))'));
   const lTypeBad = [], lTypeSeen = [];
   for (const k of lKeys) {
     /* 自重三类与手动类的默认值都是 0（体重取当日/档案，无头环境里就是 0），
        所以这里真的把该填的格填上再看总重——「填了才算得出」本身就是这条要钉的行为。 */
-    await ev("(function(){var s=document.getElementById('lcType');s.value=" + JSON.stringify(k)
+    await ev("(function(){var s=document.getElementById('toolLoadType');s.value=" + JSON.stringify(k)
       + ";s.dispatchEvent(new Event('change'));})()");
     await settle();
     const st = JSON.parse(await ev(`(function(){
-      function put(fk,v){var e=document.querySelector('#lcBody [data-lc="'+fk+'"]');if(!e)return 0;
+      function put(fk,v){var e=document.querySelector('#toolLoadBody [data-lc="'+fk+'"]');if(!e)return 0;
         e.value=String(v);e.dispatchEvent(new Event('input'));return 1;}
     var touched=put('bw',80)+put('manual',72.5);
-      return JSON.stringify({sel:_lcType,f:String(document.getElementById('lcFormula').textContent||'').trim().length,
-        ins:document.querySelectorAll('#lcBody .lc-in').length,flds:document.querySelectorAll('#lcBody .lc-fld').length,
-        tot:lcTotal(),dis:document.getElementById('lcFillBtn').disabled,
-        out:String(document.getElementById('lcOut').textContent||'').trim(),touched:touched});})()`));
-    const g = verdict(await measure('edSheet'));
+      return JSON.stringify({sel:_lcType,f:String(document.getElementById('toolLoadFormula').textContent||'').trim().length,
+        ins:document.querySelectorAll('#toolLoadBody .lc-in').length,flds:document.querySelectorAll('#toolLoadBody .lc-fld').length,
+        tot:lcTotal(),
+        out:String(document.getElementById('toolLoadOut').textContent||'').trim(),touched:touched});})()`));
+    const g = verdict(await measure('toolLoadSheet'));
     lTypeSeen.push(k + '(' + st.flds + '格/' + st.tot + 'kg)');
     if (!(st.sel === k && st.f > 0 && st.ins >= 1 && st.ins === st.flds && st.tot > 0
-        && st.dis === false && st.out.indexOf('kg') > 0 && g.ok)) {
+        && st.out.indexOf('kg') > 0 && g.ok)) {
       lTypeBad.push(k + ' ' + JSON.stringify(st) + (g.detail ? ' || ' + g.detail : ''));
     }
   }
-  T('L7 六类器械逐档真点（' + lKeys.length + ' 档）：选中标的与档位一致、公式非空、每块字段配一个输入、总重>0、「填入载荷」可用、edSheet 几何合格',
+  T('L7 六类器械逐档真点（' + lKeys.length + ' 档）：选中标的与档位一致、公式非空、每块字段配一个输入、总重>0、toolLoadSheet 几何合格',
     lKeys.length === 6 && lTypeBad.length === 0, lTypeBad.join(' ; ') || lTypeSeen.join(' → '));
 
   const lCount = JSON.parse(await ev(`(function(){
-    function pick(k){var s=document.getElementById('lcType');s.value=k;s.dispatchEvent(new Event('change'));}
-    function rows(fk){return document.querySelectorAll('#lcBody [data-lcper="'+fk+'"]').length;}
-    function put(fk,v){var e=document.querySelector('#lcBody [data-lc="'+fk+'"]');
+    function pick(k){var s=document.getElementById('toolLoadType');s.value=k;s.dispatchEvent(new Event('change'));}
+    function rows(fk){return document.querySelectorAll('#toolLoadBody [data-lcper="'+fk+'"]').length;}
+    function put(fk,v){var e=document.querySelector('#toolLoadBody [data-lc="'+fk+'"]');
       e.value=String(v);e.dispatchEvent(new Event('input'));}
     pick('stack'); var sb=rows('pins'); put('stacks',LC_FIELDS.stacks.max); var sa=rows('pins');
-    var sf=document.querySelectorAll('#lcBody .lc-fld').length;
+    var sf=document.querySelectorAll('#toolLoadBody .lc-fld').length;
     pick('loaded'); var ab=rows('armKg'); put('arms',LC_FIELDS.arms.max); var aa=rows('armKg');
     return JSON.stringify({sb:sb,sa:sa,smax:LC_FIELDS.stacks.max,amax:LC_FIELDS.arms.max,
       cnt:lcCount('stacks'),sf:sf,ab:ab,aa:aa,acnt:lcCount('arms')});})()`));
@@ -1391,46 +1398,42 @@ async function main() {
     JSON.stringify(lCount));
 
   const lClamp = JSON.parse(await ev(`(function(){
-    var s=document.getElementById('lcType');s.value='bwassist';s.dispatchEvent(new Event('change'));
-    function put(fk,v){var e=document.querySelector('#lcBody [data-lc="'+fk+'"]');
+    var s=document.getElementById('toolLoadType');s.value='bwassist';s.dispatchEvent(new Event('change'));
+    function put(fk,v){var e=document.querySelector('#toolLoadBody [data-lc="'+fk+'"]');
       e.value=String(v);e.dispatchEvent(new Event('input'));}
     put('bw',60);put('coef',1);put('assist',90);
-    var a={tot:lcTotal(),dis:document.getElementById('lcFillBtn').disabled,
-      out:String(document.getElementById('lcOut').textContent||'').trim()};
+    var a={tot:lcTotal(),
+      out:String(document.getElementById('toolLoadOut').textContent||'').trim()};
     put('assist',10);
-    var b={tot:lcTotal(),dis:document.getElementById('lcFillBtn').disabled};
+    var b={tot:lcTotal()};
     return JSON.stringify({a:a,b:b});})()`));
   await settle();
-  T('L9 自重辅助不出负总重：辅助超过体重×系数时钳到 0、输出显示 0、「填入载荷」禁用；缩回辅助又算得出正数',
-    lClamp.a.tot === 0 && lClamp.a.dis === true && lClamp.b.tot === 50 && lClamp.b.dis === false,
+  T('L9 自重辅助不出负总重：辅助超过体重×系数时钳到 0、输出显示 0；缩回辅助又算得出正数',
+    lClamp.a.tot === 0 && lClamp.a.out.indexOf('0') >= 0 && lClamp.b.tot === 50,
     '辅助 90：' + JSON.stringify(lClamp.a) + ' / 辅助 10：' + JSON.stringify(lClamp.b));
 
   const lFill0 = await ev('__uiv.ledgerHash()');
   const lFill = JSON.parse(await ev(`(function(){
-    var s=document.getElementById('lcType');s.value='manual';s.dispatchEvent(new Event('change'));
-    var e=document.querySelector('#lcBody [data-lc="manual"]');e.value='72.5';e.dispatchEvent(new Event('input'));
-    var load0=String(document.getElementById('edLoad').value),key0=day().exercises[editIdx].load,led0=__uiv.ledgerHash();
-    document.getElementById('lcFillBtn').click();
-    var t=document.getElementById('toast');
-    return JSON.stringify({load0:load0,load1:document.getElementById('edLoad').value,
-      key0:key0,key1:day().exercises[editIdx].load,led0:led0,led1:__uiv.ledgerHash(),
-      tot:lcTotal(),toast:t.classList.contains('on')?String(t.textContent||'').trim():''});})()`));
+    var s=document.getElementById('toolLoadType');s.value='manual';s.dispatchEvent(new Event('change'));
+    var e=document.querySelector('#toolLoadBody [data-lc="manual"]');e.value='72.5';e.dispatchEvent(new Event('input'));
+    var led0=__uiv.ledgerHash();
+    return JSON.stringify({led0:led0,led1:__uiv.ledgerHash(),
+      tot:lcTotal(),out:String(document.getElementById('toolLoadOut').textContent||'').trim()});})()`));
   await settle();
-  T('L10 点「填入载荷」只动 #edLoad 那一格：账本哈希一字未改、行对象里的 load 原样，提示写明仍需保存',
-    lFill.load1 === '72.5' && String(lFill.key0) === String(lFill.key1) && lFill.led0 === lFill.led1
-    && lFill.led1 === lFill0 && (lFill.toast.indexOf('仍需保存') >= 0 || lFill.toast.indexOf('save to commit') >= 0),
-    '格 ' + lFill.load0 + '→' + lFill.load1 + ' / 行内 load=' + lFill.key1 + ' / 账本同=' + (lFill.led1 === lFill0) + ' / toast「' + lFill.toast + '」');
+  T('L10 配片计算器只算不写盘：改输入后账本哈希一字未改、输出跟着重算',
+    lFill.led0 === lFill.led1 && lFill.led1 === lFill0 && lFill.tot === 72.5 && lFill.out.indexOf('72.5') >= 0,
+    '账本同=' + (lFill.led1 === lFill0) + ' / tot=' + lFill.tot + ' / out「' + lFill.out + '」');
 
-  const lIdx = await ev("(day().exercises.length>1?1:0)");
-  await ev("(function(){var e=document.querySelector('#lcBody [data-lc=\"manual\"]');e.value='137.5';e.dispatchEvent(new Event('input'));})()");
-  await call('openEditor', [lIdx]); await settle();
+  await ev("(function(){var e=document.querySelector('#toolLoadBody [data-lc=\"manual\"]');e.value='137.5';e.dispatchEvent(new Event('input'));})()");
+  await ev('closeAllSheets()'); await settle();
+  await call('openToolLoad', []); await settle();
   const lFresh = JSON.parse(await ev(`(function(){
     return JSON.stringify({type:_lcType,first:LC_TYPES[0].k,manual:_lcVal.manual,
       pins:(_lcVal.pins||[])[0],plateKg:_lcVal.plateKg,stacks:_lcVal.stacks,base:_lcVal.base,
       dPins:LC_FIELDS.pins.def,dPlate:LC_FIELDS.plateKg.def,dStacks:LC_FIELDS.stacks.def,dBase:LC_FIELDS.base.def,dManual:LC_FIELDS.manual.def,
-      tot:lcTotal(),sel:document.getElementById('lcType').value});})()`));
+      tot:lcTotal(),sel:document.getElementById('toolLoadType').value});})()`));
   /* 期望总重按 LC_FIELDS 现算（基数 + 插销档 × 每片），不抄 12.5：默认值一改，抄死的数字就变成假通过 */
-  T('L11 计算器不跨行留参：脏过手动总重后换一行重开，档位退回第一类、每格退回 LC_FIELDS 默认、下拉与模块变量一致',
+  T('L11 计算器不跨次留参：脏过手动总重后重开计算器，档位退回第一类、每格退回 LC_FIELDS 默认、下拉与模块变量一致',
     lFresh.type === lFresh.first && lFresh.sel === lFresh.type
     && Number(lFresh.manual) === Number(lFresh.dManual)
     && Number(lFresh.pins) === Number(lFresh.dPins) && Number(lFresh.plateKg) === Number(lFresh.dPlate)
@@ -1595,6 +1598,49 @@ async function main() {
     nBack === nSnap0 && nLed1 === nLed0 && nStore1 === nStore0 && nOpen === false,
     '还原相同=' + (nBack === nSnap0) + ' 账本同=' + (nLed1 === nLed0)
     + ' 分片同=' + (nStore1 === nStore0) + ' 仍开着=' + nOpen);
+  /* G12：320dp 窄屏下工具区三卡并排不越界、RPE<5 提示行不横向裁切 */
+  await rawSend('Emulation.setDeviceMetricsOverride', { width: 320, height: HEIGHT, deviceScaleFactor: 1, mobile: true });
+  await settle();
+  await ev('closeAllSheets()');
+  await ev('openSettings()'); await settle();
+  await ev("(function(){var c=document.getElementById('setToolsCard'); if(c) c.classList.remove('collapsed');})()");
+  await settle();
+  const g12 = JSON.parse(await ev(`(function(){
+    var grid=document.getElementById('setToolsBody');
+    var cards=document.querySelectorAll('#setToolsBody .set-tool-card');
+    var vw=window.innerWidth, minW=9999, out=0, ovf=0, i;
+    for(i=0;i<cards.length;i++){ var r=cards[i].getBoundingClientRect();
+      if(r.width<minW) minW=r.width; if(r.right>vw+0.5||r.left<-0.5) out++; }
+    if(grid) ovf=grid.scrollWidth-grid.clientWidth;
+    return JSON.stringify({n:cards.length,minW:Math.round(minW*10)/10,ovf:ovf,out:out,
+      doc:Math.max(document.documentElement.scrollWidth,window.innerWidth)-vw});})()`));
+  await ev('openEditor(0)'); await settle();
+  await ev("(function(){var i=document.getElementById('edRpe'); if(i){i.value='4.5'; refreshConsole();}})()"); await settle();
+  const g12b = JSON.parse(await ev(`(function(){
+    var n=document.getElementById('edRpeNote'), b=n&&n.parentNode, r=n?n.getBoundingClientRect():null;
+    return JSON.stringify({txt:(n&&n.textContent)||'', ovf:n?n.scrollWidth-n.clientWidth:0,
+      boxOvf:b?b.scrollWidth-b.clientWidth:0, inView:r?r.right<=window.innerWidth+0.5:false});})()`));
+  T('G12 320px 下工具区三卡不越界、RPE 提示行不裁切也不撑破输入框容器',
+    g12.n === 3 && g12.minW >= 84 && g12.ovf <= 1 && g12.out === 0 && g12.doc <= 1
+    && g12b.txt.indexOf('低于 5') >= 0 && g12b.ovf <= 1 && g12b.boxOvf <= 1 && g12b.inView === true,
+    JSON.stringify(g12) + ' / ' + JSON.stringify(g12b));
+  await ev('closeAllSheets()');
+  await rawSend('Emulation.setDeviceMetricsOverride', { width: 412, height: HEIGHT, deviceScaleFactor: 1, mobile: true });
+  await settle();
+  await ev(`__uiv.restore(${JSON.stringify(nSnap0)})`); await settle();
+
+  /* ---------------- Dk 段：底部日卡不被长日名撑出屏 ---------------- */
+  SECT.s = 'Dk';
+  await rawSend('Emulation.setDeviceMetricsOverride', { width: 360, height: HEIGHT, deviceScaleFactor: 1, mobile: true });
+  await ev('closeAllSheets()'); await settle();
+  const dkFit = JSON.parse(await ev(`(function(){
+    var bs=document.querySelectorAll('#dock button'),vw=innerWidth,bad=[],i,r;
+    for(i=0;i<bs.length;i++){ r=bs[i].getBoundingClientRect();
+      if(r.right>vw+1||r.left<-1||r.width<40) bad.push(i+':'+Math.round(r.left)+'-'+Math.round(r.right)+'/'+Math.round(r.width)); }
+    return JSON.stringify({n:bs.length,vw:vw,bad:bad});})()`));
+  T('Dk1 360px 底部日卡全在屏内：长日名不得把按钮撑出屏（周五/周六/GPP 必须点得到）',
+    dkFit.n >= 3 && dkFit.bad.length === 0,
+    '按钮 ' + dkFit.n + ' 个 / 越界 ' + (dkFit.bad.join(',') || '无'));
 
   /* ---------------- K 段：整轮遍历不留痕 ---------------- */
   SECT.s = 'K';

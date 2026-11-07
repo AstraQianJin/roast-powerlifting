@@ -9,7 +9,7 @@
   `const PLAN_SCHEMA`；前端不许再写第二份列序。
 - JSON 交换载体只认 tools/schema/RPL-Exchange-v3.json，注入成 `const EXCHANGE_SCHEMA`；
   信封键序、文件名模板、MIME 均以它为唯一出处，模板与 Python 侧不许硬编码第二份。
-- 器械词表只认 tools/schema/RPL-Gear-v1.json，注入成 `const GEAR_SCHEMA`；六类 kind、杆重/赛扣/
+- 器械词表只认 tools/schema/RPL-Gear-v2.json，注入成 `const GEAR_SCHEMA`；六类 kind、器械身份部件、
   挂片位/插片档枚举、步长公式与步进按钮形状都以它为出处（它不是交换契约，不进信封 accepted）。
 
 新鲜度与闸门（只在这一步做，render() 保持纯函数供 gate.py 比对）
@@ -38,7 +38,7 @@ TPL = os.path.join(HERE, "template.html")
 SEED = os.path.join(HERE, "seed.json")
 PLAN_SCHEMA = os.path.join(HERE, "schema", "RPL-Plan-v3.json")
 EXCHANGE_SCHEMA = os.path.join(HERE, "schema", "RPL-Exchange-v3.json")
-GEAR_SCHEMA = os.path.join(HERE, "schema", "RPL-Gear-v1.json")
+GEAR_SCHEMA = os.path.join(HERE, "schema", "RPL-Gear-v2.json")
 GPP_SCHEMA = os.path.join(HERE, "schema", "RPL-GPP-v1.json")
 JTS_SCHEMA = os.path.join(HERE, "schema", "RPL-JTS-v1.json")
 SHARE_SCHEMA = os.path.join(HERE, "schema", "RPL-Share-v1.json")

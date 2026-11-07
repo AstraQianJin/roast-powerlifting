@@ -476,9 +476,12 @@ async function main() {
       const dC = diffCells(stripVal(imp.cells || {}, true), stripVal(got.cells || {}, true), 5);
       T('W1 ' + label + '：换算回计划字典与 Python 往返逐格相同（' + Object.keys(imp.cells || {}).length + ' 格）',
         got.ok && dC.n === 0, !got.ok ? '(没导入)' : (dC.n ? dC.n + ' 格不同 → ' + dC.samples.join(' ; ') : '0 差异'));
-      if (label === 'canonical 全量计划')
-        T('W1 canonical：8 周账本全在且无冻结周', got.weeks === 8 && got.inactive === 0,
-          'weeks=' + got.weeks + ' / inactive=' + got.inactive);
+      if (label === 'canonical 全量计划') {
+        /* 周数不写死：以这份计划 Workouts 里真实出现的周号个数为准（计划加周不该红）。 */
+        const planWeeks = new Set((plan.Workouts || []).map(r => r.week)).size;
+        T('W1 canonical：计划里的每一周都进账本且无冻结周', got.weeks === planWeeks && got.inactive === 0,
+          'weeks=' + got.weeks + ' / 计划 ' + planWeeks + ' 周 / inactive=' + got.inactive);
+      }
     }
 
     SECT.s = 'W1s';

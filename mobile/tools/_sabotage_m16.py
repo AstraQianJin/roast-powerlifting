@@ -58,7 +58,7 @@ _F2_OLD = '   "metricType": "time",\n   "targetValue": "",\n   "targetUnit": "",
 _F2_NEW = '   "metricType": "steps",\n   "targetValue": "",\n   "targetUnit": "",\n   "rx": "30 min'
 
 _F3_OLD = ('   "domain": "aerobic",\n   "item": "Interval HIIT",\n   "metricType": "time",'
-           '\n   "targetValue": "",\n   "targetUnit": "",\n   "rx": "12 min",\n   "intensity": "",'
+           '\n   "targetValue": "",\n   "targetUnit": "",\n   "rx": "12 min（HR≈155+）",\n   "intensity": "",'
            '\n   "loadKg": "",\n   "targetRpe": 7.5,\n   "custom": true')
 _F3_NEW = ('   "domain": "mobility",\n   "item": "Foam Roll · Joint Mobility · Thoracic Rotation",'
            '\n   "metricType": "",\n   "targetValue": "",\n   "targetUnit": "",\n   "rx": "20 min",'
